@@ -18,8 +18,8 @@ type LLMResponse = core.LLMResponse
 type TokenUsage = core.TokenUsage
 
 // NewLLMCallParts creates a new LLMCallParts with default values
-func NewLLMCallParts() LLMCallParts {
-	return LLMCallParts{
+func NewLLMCallParts() *LLMCallParts {
+	return &LLMCallParts{
 		Provider:    "cerebras",
 		Model:       "llama-3.3-70b",
 		System:      Message{Role: "system", Contents: []Content{}},

@@ -12,7 +12,7 @@ type Action[T any] struct {
 // The type parameter T represents the expected response structure.
 func NewAction[T any]() *Action[T] {
 	return &Action[T]{
-		Parts: NewLLMCallParts(),
+		Parts: *NewLLMCallParts(),
 	}
 }
 

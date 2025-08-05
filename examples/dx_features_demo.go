@@ -104,7 +104,7 @@ Please provide detailed analysis focusing on the specified areas.
 		WithModel("claude-3-haiku")
 	
 	// Use the template to render the system message
-	if err := gai.RenderSystemTemplate(&parts, analysisTemplate, data); err != nil {
+	if err := gai.RenderSystemTemplate(parts, analysisTemplate, data); err != nil {
 		log.Fatal(err)
 	}
 	parts.WithUserMessage("Review the authentication middleware")

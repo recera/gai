@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/recera/gai/providers"
 )
 
 // mockProviderClient is a test implementation of ProviderClient
@@ -45,7 +44,13 @@ func TestLLMClientWithMock(t *testing.T) {
 
 	ctx := context.Background()
 	
-	var result R_Animals
+	type Animals struct {
+		Mammals []string `json:"mammals"`
+		Birds   []string `json:"birds"`
+		Fish    []string `json:"fish"`
+	}
+
+	var result Animals
 
 	// Configure LLM call
 	callParts := NewLLMCallParts().
@@ -54,7 +59,7 @@ func TestLLMClientWithMock(t *testing.T) {
 		WithUserMessage("List animals")
 
 	// Make the call using our mock client
-	if err := mockClient.GetResponseObject(ctx, callParts, &result); err != nil {
+	if err := mockClient.GetResponseObject(ctx, *callParts, &result); err != nil {
 		t.Fatalf("Failed to get response: %v", err)
 	}
 
@@ -128,12 +133,6 @@ func TestOpenAIProviderWithHTTPMock(t *testing.T) {
 	// Note: This would require modifying the provider to accept a custom base URL
 	// For now, this demonstrates the pattern
 	
-	ctx := context.Background()
-	parts := NewLLMCallParts().
-		WithProvider("openai").
-		WithModel("gpt-4").
-		WithUserMessage("What is the capital of France?")
-
 	// This test demonstrates the pattern, but would need provider modifications
 	// to actually inject the mock server URL
 	t.Log("Mock server created at:", server.URL)
@@ -174,7 +173,7 @@ func TestErrorHandling(t *testing.T) {
 			ctx := context.Background()
 			parts := NewLLMCallParts().WithUserMessage("test")
 
-			_, err := client.GetCompletion(ctx, parts)
+			_, err := client.GetCompletion(ctx, *parts)
 			if err == nil {
 				t.Fatal("Expected error, got nil")
 			}
