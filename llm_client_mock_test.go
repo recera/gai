@@ -11,7 +11,6 @@ import (
 
 // mockProviderClient is a test implementation of ProviderClient
 type mockProviderClient struct {
-	mockServer *httptest.Server
 }
 
 func (m *mockProviderClient) GetCompletion(ctx context.Context, parts LLMCallParts) (LLMResponse, error) {

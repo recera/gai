@@ -13,7 +13,7 @@ func (p *LLMCallParts) CountMessages() int {
 }
 
 // GetLastUserMessage returns the last user message and its index, or ("", -1) if none found
-func (p *LLMCallParts) GetLastUserMessage() (string, int) {
+func (p *LLMCallParts) GetLastUserMessage() (content string, index int) {
 	for i := len(p.Messages) - 1; i >= 0; i-- {
 		if p.Messages[i].Role == "user" {
 			return p.Messages[i].GetTextContent(), i
@@ -23,7 +23,7 @@ func (p *LLMCallParts) GetLastUserMessage() (string, int) {
 }
 
 // FindLastMessage finds the last message with the given role
-func (p *LLMCallParts) FindLastMessage(role string) (Message, int) {
+func (p *LLMCallParts) FindLastMessage(role string) (message Message, index int) {
 	for i := len(p.Messages) - 1; i >= 0; i-- {
 		if p.Messages[i].Role == role {
 			return p.Messages[i], i

@@ -121,7 +121,7 @@ func (m *Message) AddImageContent(mimeType string, data []byte) {
 }
 
 // AddImageContentFromURL adds image content from a URL to a message
-func (m *Message) AddImageContentFromURL(mimeType string, url string) {
+func (m *Message) AddImageContentFromURL(mimeType, url string) {
 	m.Contents = append(m.Contents, ImageContent{MIMEType: mimeType, URL: url})
 }
 

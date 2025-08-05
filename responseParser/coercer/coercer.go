@@ -178,7 +178,10 @@ func stringToTimeHookFunc(options CoerceOptions) mapstructure.DecodeHookFunc {
 
 		switch f.Kind() {
 		case reflect.String:
-			s := data.(string)
+			s, ok := data.(string)
+			if !ok {
+				return nil, fmt.Errorf("expected string, got %T", data)
+			}
 
 			// Try common time formats
 			formats := []string{
@@ -201,7 +204,11 @@ func stringToTimeHookFunc(options CoerceOptions) mapstructure.DecodeHookFunc {
 
 		case reflect.Float64:
 			// Handle Unix timestamp (seconds since epoch)
-			return time.Unix(int64(data.(float64)), 0), nil
+			f, ok := data.(float64)
+			if !ok {
+				return nil, fmt.Errorf("expected float64, got %T", data)
+			}
+			return time.Unix(int64(f), 0), nil
 
 		case reflect.Int, reflect.Int32, reflect.Int64:
 			// Handle Unix timestamp (seconds since epoch)
@@ -225,7 +232,10 @@ func stringToStructHookFunc() mapstructure.DecodeHookFunc {
 			return data, nil
 		}
 
-		s := data.(string)
+		s, ok := data.(string)
+		if !ok {
+			return data, nil
+		}
 
 		// Create a new instance of the target type
 		target := reflect.New(t).Interface()
@@ -270,7 +280,10 @@ func stringToSliceHookFunc() mapstructure.DecodeHookFunc {
 			return data, nil
 		}
 
-		s := data.(string)
+		s, ok := data.(string)
+		if !ok {
+			return data, nil
+		}
 
 		// Handle comma-separated lists
 		if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
