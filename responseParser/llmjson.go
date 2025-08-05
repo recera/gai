@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/collinshill/gai/core"
-	"github.com/collinshill/gai/responseParser/cleanup"
-	"github.com/collinshill/gai/responseParser/coercer"
-	"github.com/collinshill/gai/responseParser/parser"
+	"github.com/recera/gai/core"
+	"github.com/recera/gai/responseParser/cleanup"
+	"github.com/recera/gai/responseParser/coercer"
+	"github.com/recera/gai/responseParser/parser"
 
 	"github.com/pkg/errors"
 )

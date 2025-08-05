@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/collinshill/gai/core"
+	"github.com/recera/gai/core"
 )
 
 type groqClient struct {

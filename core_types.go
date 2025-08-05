@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/collinshill/gai/core"
+	"github.com/recera/gai/core"
 )
 
 // Type aliases for core types to maintain API compatibility

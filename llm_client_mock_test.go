@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/collinshill/gai/providers"
+	"github.com/recera/gai/providers"
 )
 
 // mockProviderClient is a test implementation of ProviderClient

@@ -12,7 +12,7 @@ Thank you for your interest in contributing to gai! We welcome contributions fro
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/collinshill/gai.git
+   git remote add upstream https://github.com/recera/gai.git
    ```
 4. Create a new branch for your feature or fix:
    ```bash

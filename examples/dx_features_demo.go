@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/collinshill/gai"
+	"github.com/recera/gai"
 )
 
 // CodeReview represents a structured code review response

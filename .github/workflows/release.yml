@@ -46,7 +46,7 @@ jobs:
           
           ### Installation
           ```bash
-          go get github.com/collinshill/gai@${{ github.ref }}
+          go get github.com/recera/gai@${{ github.ref }}
           ```
           
-          See the [README](https://github.com/collinshill/gai#readme) for usage examples.
+          See the [README](https://github.com/recera/gai#readme) for usage examples.

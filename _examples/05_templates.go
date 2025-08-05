@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/collinshill/gai"
+	"github.com/recera/gai"
 )
 
 // Code review structure

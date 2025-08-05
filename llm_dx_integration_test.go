@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/collinshill/gai"
+	"github.com/recera/gai"
 )
 
 // Weather represents a weather query response

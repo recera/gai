@@ -1,7 +1,7 @@
 package gai
 
 import (
-	"github.com/collinshill/gai/core"
+	"github.com/recera/gai/core"
 )
 
 // Type aliases for tokenizer types

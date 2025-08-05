@@ -1,7 +1,7 @@
 # gai - Go AI SDK
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/collinshill/gai.svg)](https://pkg.go.dev/github.com/collinshill/gai)
-[![Go Report Card](https://goreportcard.com/badge/github.com/collinshill/gai)](https://goreportcard.com/report/github.com/collinshill/gai)
+[![Go Reference](https://pkg.go.dev/badge/github.com/recera/gai.svg)](https://pkg.go.dev/github.com/recera/gai)
+[![Go Report Card](https://goreportcard.com/badge/github.com/recera/gai)](https://goreportcard.com/report/github.com/recera/gai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 gai (Go AI) is a powerful, type-safe Go SDK for building AI applications with Large Language Models (LLMs). It provides a unified interface for multiple providers while offering advanced features like structured outputs, robust JSON parsing, and comprehensive error handling.
@@ -20,7 +20,7 @@ gai (Go AI) is a powerful, type-safe Go SDK for building AI applications with La
 ## 📦 Installation
 
 ```bash
-go get github.com/collinshill/gai
+go get github.com/recera/gai
 ```
 
 ## 🚀 Quick Start
@@ -35,7 +35,7 @@ import (
     "fmt"
     "log"
     
-    "github.com/collinshill/gai"
+    "github.com/recera/gai"
 )
 
 func main() {
@@ -207,7 +207,7 @@ removed, err := parts.PruneKeepingRecent(5, 4000, tokenizer)
 ### Package Structure
 
 ```
-github.com/collinshill/gai/
+github.com/recera/gai/
 ├── core_types.go          # Core types (Message, LLMResponse, etc.)
 ├── llm_client.go          # Client implementation
 ├── action.go              # Generic Action[T] pattern

@@ -1,7 +1,7 @@
 package gai
 
 import (
-	"github.com/collinshill/gai/providers"
+	"github.com/recera/gai/providers"
 )
 
 // Provider factory functions to avoid circular imports

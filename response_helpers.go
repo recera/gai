@@ -1,7 +1,7 @@
 package gai
 
 import (
-	"github.com/collinshill/gai/responseParser"
+	"github.com/recera/gai/responseParser"
 )
 
 // ResponseInstructions generates instructions for the LLM to format its response

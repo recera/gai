@@ -32,7 +32,7 @@ linters-settings:
   gofmt:
     simplify: true
   goimports:
-    local-prefixes: github.com/collinshill/gai
+    local-prefixes: github.com/recera/gai
   govet:
     check-shadowing: true
   errcheck:

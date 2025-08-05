@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/collinshill/gai"
+	"github.com/recera/gai"
 )
 
 func main() {

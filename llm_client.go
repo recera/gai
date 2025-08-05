@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/collinshill/gai/core"
-	p "github.com/collinshill/gai/responseParser"
+	"github.com/recera/gai/core"
+	p "github.com/recera/gai/responseParser"
 
 	"github.com/joho/godotenv"
 )

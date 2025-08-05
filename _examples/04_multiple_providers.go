@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/collinshill/gai"
+	"github.com/recera/gai"
 )
 
 // Question structure for comparing responses
