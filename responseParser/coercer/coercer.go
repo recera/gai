@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -75,8 +76,9 @@ func Coerce(input interface{}, target interface{}, opts ...CoerceOptions) error 
 
 	// Create a decoder with custom options
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		TagName:          "json",
-		WeaklyTypedInput: true,
+		TagName: "json",
+		// Use strict typing; rely on our own preprocessing and hooks for safe coercions
+		WeaklyTypedInput: false,
 		Result:           target,
 		ZeroFields:       options.AllowZeroValues,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
@@ -87,10 +89,29 @@ func Coerce(input interface{}, target interface{}, opts ...CoerceOptions) error 
 			snakeCaseMatcherHookFunc(options),
 		),
 		MatchName: func(mapKey, fieldName string) bool {
+			// Basic match with optional case-insensitivity
 			if options.IgnoreCase {
-				return strings.EqualFold(mapKey, fieldName)
+				if strings.EqualFold(mapKey, fieldName) {
+					return true
+				}
+			} else if mapKey == fieldName {
+				return true
 			}
-			return mapKey == fieldName
+
+			// Additional matching to improve DX when UseSnakeCase is enabled:
+			if options.UseSnakeCase {
+				// Normalize both to a canonical form (lowercase, no underscores)
+				norm := func(s string) string {
+					s = strings.TrimSpace(s)
+					s = strings.ReplaceAll(s, "_", "")
+					return strings.ToLower(s)
+				}
+				// Try matching snake_case vs camelCase equivalently
+				if norm(mapKey) == norm(fieldName) {
+					return true
+				}
+			}
+			return false
 		},
 	})
 
@@ -121,7 +142,9 @@ func deepPreprocess(input interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			result[key] = processedValue
+			// Normalize camelCase keys to snake_case to better match json tags
+			normalizedKey := camelToSnake(key)
+			result[normalizedKey] = processedValue
 		}
 		return result, nil
 
@@ -137,19 +160,20 @@ func deepPreprocess(input interface{}) (interface{}, error) {
 		return result, nil
 
 	case string:
+		s := strings.TrimSpace(v)
 		// Try to parse string as number if it looks numerical
-		if isLikelyNumber(v) {
-			if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+		if isLikelyNumber(s) {
+			if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 				return i, nil
 			}
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
+			if f, err := strconv.ParseFloat(s, 64); err == nil {
 				return f, nil
 			}
 		}
 
 		// Try to parse string as boolean if it looks like a boolean
-		if isLikelyBool(v) {
-			if b, err := strconv.ParseBool(v); err == nil {
+		if isLikelyBool(s) {
+			if b, err := strconv.ParseBool(s); err == nil {
 				return b, nil
 			}
 		}
@@ -312,8 +336,16 @@ func snakeCaseMatcherHookFunc(options CoerceOptions) mapstructure.DecodeHookFunc
 		t reflect.Type,
 		data interface{},
 	) (interface{}, error) {
-		// This hook doesn't transform data, just passes it through
-		// Snake case handling is done in the MatchName function
+		// This hook can also help when the input is a map with camelCase keys
+		// but the struct fields use json:"snake_case" tags.
+		// If the input is a map[string]interface{}, normalize keys to snake_case.
+		if m, ok := data.(map[string]interface{}); ok && options.UseSnakeCase {
+			normalized := make(map[string]interface{}, len(m))
+			for k, v := range m {
+				normalized[camelToSnake(k)] = v
+			}
+			return normalized, nil
+		}
 		return data, nil
 	}
 }
@@ -325,85 +357,85 @@ func isLikelyNumber(s string) bool {
 		return false
 	}
 
-	// Check for decimal point or scientific notation
-	hasDot := strings.Contains(s, ".")
-	hasE := strings.ContainsAny(s, "eE")
-
-	// Check for minus sign at the beginning
-	hasSign := s[0] == '-' || s[0] == '+'
-	startIdx := 0
-	if hasSign {
-		startIdx = 1
-	}
-
-	// Must have at least one digit
-	hasDigit := false
-	for i := startIdx; i < len(s); i++ {
-		if s[i] >= '0' && s[i] <= '9' {
-			hasDigit = true
-			break
+	// Optional sign
+	if s[0] == '+' || s[0] == '-' {
+		s = s[1:]
+		if s == "" {
+			return false
 		}
 	}
 
-	if !hasDigit {
+	// Count digits and dots, allow at most one dot
+	dotCount := 0
+	digitCount := 0
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if ch == '.' {
+			dotCount++
+			if dotCount > 1 {
+				return false
+			}
+			continue
+		}
+		if ch >= '0' && ch <= '9' {
+			digitCount++
+			continue
+		}
+		// Allow scientific notation with 'e' or 'E' followed by optional sign and digits
+		if (ch == 'e' || ch == 'E') && i > 0 && i < len(s)-1 {
+			exp := s[i+1:]
+			if exp[0] == '+' || exp[0] == '-' {
+				exp = exp[1:]
+			}
+			if exp == "" {
+				return false
+			}
+			for j := 0; j < len(exp); j++ {
+				if exp[j] < '0' || exp[j] > '9' {
+					return false
+				}
+			}
+			// Base part must have at least one digit
+			return digitCount > 0
+		}
 		return false
 	}
 
-	// Handle scientific notation
-	if hasE {
-		parts := strings.SplitN(s, "e", 2)
-		if len(parts) != 2 {
-			parts = strings.SplitN(s, "E", 2)
-		}
-		if len(parts) != 2 {
-			return false
-		}
-
-		// Validate the base part
-		base := parts[0]
-		if !isLikelyNumber(base) {
-			return false
-		}
-
-		// Validate the exponent part
-		exp := parts[1]
-		if len(exp) == 0 {
-			return false
-		}
-
-		// Exponent can have a sign
-		expStartIdx := 0
-		if exp[0] == '+' || exp[0] == '-' {
-			expStartIdx = 1
-		}
-
-		// Rest must be digits
-		for i := expStartIdx; i < len(exp); i++ {
-			if exp[i] < '0' || exp[i] > '9' {
-				return false
-			}
-		}
-
-		return true
-	}
-
-	// Regular number
-	for i := startIdx; i < len(s); i++ {
-		c := s[i]
-		if c == '.' && hasDot {
-			// More than one dot
-			return false
-		}
-		if (c < '0' || c > '9') && c != '.' {
-			return false
-		}
-	}
-
-	return true
+	return digitCount > 0
 }
 
 // isLikelyBool checks if a string likely represents a boolean value
 func isLikelyBool(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(s))
 	return s == "true" || s == "false" || s == "yes" || s == "no" || s == "1" || s == "0"
+}
+
+// camelToSnake converts a camelCase or PascalCase identifier to snake_case.
+func camelToSnake(s string) string {
+	if s == "" {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s) + len(s)/2)
+	lastLower := false
+	for _, r := range s {
+		if r == '_' || r == '-' || r == ' ' {
+			if b.Len() > 0 && b.String()[b.Len()-1] != '_' {
+				b.WriteByte('_')
+			}
+			lastLower = false
+			continue
+		}
+		if unicode.IsUpper(r) {
+			if lastLower && b.Len() > 0 && b.String()[b.Len()-1] != '_' {
+				b.WriteByte('_')
+			}
+			b.WriteRune(unicode.ToLower(r))
+			lastLower = false
+		} else {
+			b.WriteRune(r)
+			lastLower = true
+		}
+	}
+	return b.String()
 }

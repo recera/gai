@@ -27,7 +27,7 @@ func main() {
 
 	// Create a simple completion request
 	ctx := context.Background()
-	
+
 	// Using fluent builder pattern
 	parts := gai.NewLLMCallParts().
 		WithProvider("openai").
@@ -35,12 +35,12 @@ func main() {
 		WithSystem("You are a helpful assistant.").
 		WithUserMessage("What is the capital of France?")
 
-	// Get completion
-	response, err := client.GetCompletion(ctx, parts)
+	// Get completion using ergonomic helper that accepts *LLMCallParts
+	response, err := gai.GetCompletionP(ctx, client, parts)
 	if err != nil {
 		// Check if it's an LLM error with more details
 		if llmErr, ok := err.(*gai.LLMError); ok {
-			log.Printf("LLM Error from %s/%s: %v", 
+			log.Printf("LLM Error from %s/%s: %v",
 				llmErr.Provider, llmErr.Model, llmErr.Err)
 			if llmErr.StatusCode != 0 {
 				log.Printf("HTTP Status: %d", llmErr.StatusCode)

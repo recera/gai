@@ -54,8 +54,22 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", parts.Model, c.apiKey)
 
+	// Gemini tends to accept instructions as part of content. Prepend a system preamble if present.
+	contents := c.transformMessages(parts.Messages)
+	if len(parts.System.Contents) > 0 {
+		var sys string
+		for _, content := range parts.System.Contents {
+			if textContent, ok := content.(core.TextContent); ok {
+				sys += textContent.Text
+			}
+		}
+		if sys != "" {
+			pre := geminiContent{Role: "user", Parts: []geminiPart{{Text: sys}}}
+			contents = append([]geminiContent{pre}, contents...)
+		}
+	}
 	reqBody := geminiRequest{
-		Contents: c.transformMessages(parts.Messages),
+		Contents: contents,
 		GenerationConfig: generationConfig{
 			Temperature:     parts.Temperature,
 			MaxOutputTokens: parts.MaxTokens,

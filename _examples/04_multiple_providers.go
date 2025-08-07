@@ -54,9 +54,9 @@ func main() {
 	// Test each provider
 	for _, p := range providers {
 		fmt.Printf("Testing %s/%s... ", p.Provider, p.Model)
-		
+
 		start := time.Now()
-		
+
 		parts := gai.NewLLMCallParts().
 			WithProvider(p.Provider).
 			WithModel(p.Model).
@@ -64,17 +64,17 @@ func main() {
 			WithMaxTokens(150).
 			WithTemperature(0.3)
 
-		response, err := client.GetCompletion(ctx, parts)
-		
+		response, err := gai.GetCompletionP(ctx, client, parts)
+
 		duration := time.Since(start)
-		
+
 		if err != nil {
 			fmt.Printf("❌ Error: %v\n", err)
 			continue
 		}
-		
+
 		fmt.Printf("✅ (%.2fs)\n", duration.Seconds())
-		
+
 		results = append(results, ProviderComparison{
 			Provider: p.Provider,
 			Model:    p.Model,
@@ -87,9 +87,9 @@ func main() {
 	// Display results
 	fmt.Println("\nResults:")
 	fmt.Println("========")
-	
+
 	for _, r := range results {
-		fmt.Printf("\n%s/%s (%.2fs, %d tokens):\n", 
+		fmt.Printf("\n%s/%s (%.2fs, %d tokens):\n",
 			r.Provider, r.Model, r.Duration.Seconds(), r.Tokens)
 		fmt.Printf("%s\n", r.Response)
 		fmt.Println(strings.Repeat("-", 60))

@@ -52,9 +52,10 @@ func (c *groqClient) GetCompletion(ctx context.Context, parts core.LLMCallParts)
 		return emptyResponse, core.NewLLMError(fmt.Errorf("API key is not set"), "groq", parts.Model)
 	}
 
+	transformed := c.transformMessagesWithSystem(parts.Messages, parts.System)
 	reqBody := groqRequest{
 		Model:       parts.Model,
-		Messages:    c.transformMessages(parts.Messages),
+		Messages:    transformed,
 		MaxTokens:   parts.MaxTokens,
 		Temperature: parts.Temperature,
 	}
@@ -130,4 +131,20 @@ func (c *groqClient) transformMessages(messages []core.Message) []groqMessage {
 		})
 	}
 	return groqMessages
+}
+
+func (c *groqClient) transformMessagesWithSystem(messages []core.Message, system core.Message) []groqMessage {
+	result := make([]groqMessage, 0, len(messages)+1)
+	if len(system.Contents) > 0 {
+		var sys string
+		for _, content := range system.Contents {
+			if textContent, ok := content.(core.TextContent); ok {
+				sys += textContent.Text
+			}
+		}
+		if sys != "" {
+			result = append(result, groqMessage{Role: "system", Content: sys})
+		}
+	}
+	return append(result, c.transformMessages(messages)...)
 }

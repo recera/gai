@@ -10,9 +10,9 @@ import (
 
 // Code review structure
 type CodeReview struct {
-	Issues []Issue `json:"issues" desc:"List of issues found"`
-	Score  int     `json:"score" desc:"Code quality score 1-10"`
-	Summary string `json:"summary" desc:"Overall assessment"`
+	Issues  []Issue `json:"issues" desc:"List of issues found"`
+	Score   int     `json:"score" desc:"Code quality score 1-10"`
+	Summary string  `json:"summary" desc:"Overall assessment"`
 }
 
 type Issue struct {
@@ -105,7 +105,7 @@ Code to review:
 	if len(review.Issues) > 0 {
 		fmt.Printf("Issues Found:\n")
 		for i, issue := range review.Issues {
-			fmt.Printf("\n%d. [%s] %s (Severity: %s)\n", 
+			fmt.Printf("\n%d. [%s] %s (Severity: %s)\n",
 				i+1, issue.Type, issue.Description, issue.Severity)
 			if issue.Line > 0 {
 				fmt.Printf("   Line: %d\n", issue.Line)

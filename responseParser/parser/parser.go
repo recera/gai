@@ -63,10 +63,14 @@ func ToJSON(raw string, opts Options) ([]byte, error) {
 	if opts.Relaxed {
 		var yamlData interface{}
 		if err := yaml.Unmarshal([]byte(input), &yamlData); err == nil {
-			// Convert from YAML representation to JSON
-			jsonBytes, err := json.Marshal(yamlData)
-			if err == nil && json.Valid(jsonBytes) {
-				return jsonBytes, nil
+			// Only accept object or array kinds (map or slice) to avoid treating plain strings
+			// or scalars as valid JSON payloads when callers expect structured JSON.
+			switch yamlData.(type) {
+			case map[string]interface{}, []interface{}:
+				jsonBytes, err := json.Marshal(yamlData)
+				if err == nil && json.Valid(jsonBytes) {
+					return jsonBytes, nil
+				}
 			}
 		}
 	}

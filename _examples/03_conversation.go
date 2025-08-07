@@ -30,7 +30,7 @@ func main() {
 	// Interactive conversation loop
 	ctx := context.Background()
 	scanner := bufio.NewScanner(os.Stdin)
-	
+
 	fmt.Println("Chat with AI (type 'quit' to exit)")
 	fmt.Println("=====================================")
 
@@ -39,7 +39,7 @@ func main() {
 		if !scanner.Scan() {
 			break
 		}
-		
+
 		input := strings.TrimSpace(scanner.Text())
 		if input == "quit" || input == "exit" {
 			break
@@ -49,7 +49,7 @@ func main() {
 		conversation.WithUserMessage(input)
 
 		// Get response
-		response, err := client.GetCompletion(ctx, *conversation)
+		response, err := gai.GetCompletionP(ctx, client, conversation)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			continue

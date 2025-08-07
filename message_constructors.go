@@ -28,11 +28,7 @@ func NewSystemMessage(text string) Message {
 // implementing proper tool-use support for each provider.
 func NewToolRequestMessage(name, args string) Message {
 	m := Message{Role: "assistant", Contents: []Content{}}
-	// Tool calls are typically represented as text content with special formatting
-	// The exact format depends on the provider, but this is a common pattern
-	toolCallContent := TextContent{
-		Text: "TOOL_CALL:" + name + ":" + args,
-	}
+	toolCallContent := TextContent{Text: "TOOL_CALL:" + name + ":" + args}
 	m.AddContent(toolCallContent)
 	return m
 }
@@ -42,9 +38,7 @@ func NewToolRequestMessage(name, args string) Message {
 // implementing proper tool-use support for each provider.
 func NewToolResponseMessage(name, output string) Message {
 	m := Message{Role: "tool", Contents: []Content{}}
-	toolResponseContent := TextContent{
-		Text: "TOOL_RESPONSE:" + name + ":" + output,
-	}
+	toolResponseContent := TextContent{Text: "TOOL_RESPONSE:" + name + ":" + output}
 	m.AddContent(toolResponseContent)
 	return m
 }

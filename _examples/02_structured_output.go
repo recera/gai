@@ -10,13 +10,13 @@ import (
 
 // Define your response structure
 type BookRecommendation struct {
-	Title       string   `json:"title" desc:"Book title"`
-	Author      string   `json:"author" desc:"Book author"`
-	Year        int      `json:"year" desc:"Publication year"`
-	Genre       string   `json:"genre" desc:"Primary genre"`
-	Summary     string   `json:"summary" desc:"Brief plot summary"`
+	Title        string  `json:"title" desc:"Book title"`
+	Author       string  `json:"author" desc:"Book author"`
+	Year         int     `json:"year" desc:"Publication year"`
+	Genre        string  `json:"genre" desc:"Primary genre"`
+	Summary      string  `json:"summary" desc:"Brief plot summary"`
 	WhyRecommend string  `json:"why_recommend" desc:"Why this book matches the request"`
-	Rating      float64  `json:"rating" desc:"Rating out of 5"`
+	Rating       float64 `json:"rating" desc:"Rating out of 5"`
 }
 
 func main() {

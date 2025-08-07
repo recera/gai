@@ -50,9 +50,11 @@ func (c *openAIClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 		return emptyResponse, core.NewLLMError(fmt.Errorf("API key is not set"), "openai", parts.Model)
 	}
 
+	// Include system message if present by prepending to messages
+	transformed := c.transformMessagesWithSystem(parts.Messages, parts.System)
 	reqBody := openAIRequest{
 		Model:       parts.Model,
-		Messages:    c.transformMessages(parts.Messages),
+		Messages:    transformed,
 		MaxTokens:   parts.MaxTokens,
 		Temperature: parts.Temperature,
 	}
@@ -128,4 +130,20 @@ func (c *openAIClient) transformMessages(messages []core.Message) []openAIMessag
 		})
 	}
 	return openAIMessages
+}
+
+func (c *openAIClient) transformMessagesWithSystem(messages []core.Message, system core.Message) []openAIMessage {
+	result := make([]openAIMessage, 0, len(messages)+1)
+	if len(system.Contents) > 0 {
+		var sys string
+		for _, content := range system.Contents {
+			if textContent, ok := content.(core.TextContent); ok {
+				sys += textContent.Text
+			}
+		}
+		if sys != "" {
+			result = append(result, openAIMessage{Role: "system", Content: sys})
+		}
+	}
+	return append(result, c.transformMessages(messages)...)
 }

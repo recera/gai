@@ -45,13 +45,14 @@ func main() {
         log.Fatal(err)
     }
     
-    // Simple completion
+    // Simple completion (fluent builder returns a pointer)
     parts := gai.NewLLMCallParts().
         WithProvider("openai").
         WithModel("gpt-4o").
         WithUserMessage("What's the capital of France?")
     
-    response, err := client.GetCompletion(context.Background(), parts)
+    // Use helper that accepts *LLMCallParts for ergonomic calls
+    response, err := gai.GetCompletionP(context.Background(), client, parts)
     if err != nil {
         log.Fatal(err)
     }
@@ -157,7 +158,7 @@ err = gai.RenderSystemTemplate(parts, tmpl, map[string]interface{}{
 ### Error Handling
 
 ```go
-response, err := client.GetCompletion(ctx, parts)
+response, err := gai.GetCompletionP(ctx, client, parts)
 if err != nil {
     // Structured error information
     if llmErr, ok := err.(*gai.LLMError); ok {
@@ -236,10 +237,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📖 More Examples
 
-Check out the [examples](examples/) directory for more detailed examples:
+Check out the examples for more detailed usage:
 
-- [Basic completions](examples/01_simple_completion.go)
-- [Structured outputs](examples/02_structured_output.go)
-- [Conversation management](examples/03_conversation.go)
-- [Error handling](examples/04_error_handling.go)
-- [Template usage](examples/05_templates.go)
+- [Basic completions](_examples/01_simple_completion.go)
+- [Structured outputs](_examples/02_structured_output.go)
+- [Conversation management](_examples/03_conversation.go)
+- [Multiple providers](_examples/04_multiple_providers.go)
+- [Template usage](_examples/05_templates.go)
+- A comprehensive demo: [`examples/dx_features_demo.go`](examples/dx_features_demo.go)

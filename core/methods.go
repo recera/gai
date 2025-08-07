@@ -84,6 +84,16 @@ func (p *LLMCallParts) WithMessages(msgs ...Message) *LLMCallParts {
 	return p
 }
 
+// Value returns a copy of the LLMCallParts value. This is useful when
+// an API expects a value (not a pointer) but you are using the fluent
+// builder pattern that returns a pointer.
+func (p *LLMCallParts) Value() LLMCallParts {
+	if p == nil {
+		return LLMCallParts{}
+	}
+	return *p
+}
+
 // Clear resets the messages while preserving other settings
 func (p *LLMCallParts) Clear() *LLMCallParts {
 	p.Messages = []Message{}
