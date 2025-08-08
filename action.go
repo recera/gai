@@ -1,6 +1,10 @@
 package gai
 
-import "context"
+import (
+	"context"
+
+	responseParser "github.com/recera/gai/responseParser"
+)
 
 // Action represents a type-safe LLM action that binds a request with its expected result type.
 // This pattern ensures compile-time type safety and makes the API more ergonomic.
@@ -21,6 +25,20 @@ func NewAction[T any]() *Action[T] {
 func (a *Action[T]) Run(ctx context.Context, c LLMClient) (*T, error) {
 	var v T
 	if err := c.GetResponseObject(ctx, a.Parts, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// RunWithTools executes this action with tool-calling support and returns the typed result.
+// It requires that tools have been configured via WithTools on the underlying parts.
+func (a *Action[T]) RunWithTools(ctx context.Context, c LLMClient, executor func(call ToolCall) (string, error)) (*T, error) {
+	resp, err := c.RunWithTools(ctx, a.Parts, executor)
+	if err != nil {
+		return nil, err
+	}
+	var v T
+	if err := responseParser.ParseInto(resp.Content, &v); err != nil {
 		return nil, err
 	}
 	return &v, nil

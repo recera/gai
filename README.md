@@ -16,6 +16,8 @@ gai (Go AI) is a powerful, type-safe Go SDK for building AI applications with La
 - **🎯 Structured Errors**: Rich error context with provider, model, and HTTP details
 - **📝 Template Support**: Built-in prompt templating with Go's text/template
 - **🔍 Conversation Management**: Tools for history manipulation and token management
+- **📡 Streaming Support**: Unified `StreamCompletion` with SSE for OpenAI/Anthropic; one-shot emulation for others
+- **🛠️ Tool Calling**: OpenAI tool-call parsing and orchestration via `RunWithTools`
 
 ## 📦 Installation
 
@@ -171,6 +173,59 @@ if err != nil {
 ```
 
 ### Token Management
+### Streaming
+
+```go
+ctx := context.Background()
+parts := gai.NewLLMCallParts().
+  WithProvider("openai").
+  WithModel("gpt-4o-mini").
+  WithSystem("You stream responses.").
+  WithUserMessage("Explain Rust ownership briefly.")
+
+client, _ := gai.NewClient()
+_ = client.StreamCompletion(ctx, parts.Value(), func(ch gai.StreamChunk) error {
+  switch ch.Type {
+  case "content":
+    fmt.Print(ch.Delta)
+  case "end":
+    fmt.Printf("\n[done] reason=%s\n", ch.FinishReason)
+  }
+  return nil
+})
+```
+
+OpenAI and Anthropic use SSE; Gemini/Groq/Cerebras currently emit a single content chunk followed by end.
+
+### Tool Calling
+
+```go
+tools := []gai.ToolDefinition{
+  {Name: "get_time", Description: "Get current time", JSONSchema: map[string]any{
+    "type": "object", "properties": map[string]any{}, "required": []string{},
+  }},
+}
+
+parts := gai.NewLLMCallParts().
+  WithProvider("openai").WithModel("gpt-4o-mini").
+  WithSystem("Use tools when needed").
+  WithTools(tools...).
+  WithUserMessage("What time is it?")
+
+client, _ := gai.NewClient()
+resp, err := client.RunWithTools(ctx, parts.Value(), func(call gai.ToolCall) (string, error) {
+  switch call.Name {
+  case "get_time":
+    return time.Now().Format(time.RFC3339), nil
+  default:
+    return "", fmt.Errorf("unknown tool: %s", call.Name)
+  }
+})
+if err != nil { log.Fatal(err) }
+fmt.Println("Answer:", resp.Content)
+```
+
+For typed outputs, use `Action[T].RunWithTools` similarly. Current loop feeds tool results back as text; provider-native tool result wiring can be extended.
 
 ```go
 // Estimate tokens

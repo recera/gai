@@ -148,3 +148,17 @@ func (c *groqClient) transformMessagesWithSystem(messages []core.Message, system
 	}
 	return append(result, c.transformMessages(messages)...)
 }
+
+// StreamCompletion uses the OpenAI-compatible streaming endpoint if available; here we emulate with one-shot
+func (c *groqClient) StreamCompletion(ctx context.Context, parts core.LLMCallParts, handler core.StreamHandler) error {
+	resp, err := c.GetCompletion(ctx, parts)
+	if err != nil {
+		return err
+	}
+	if resp.Content != "" {
+		if err := handler(core.StreamChunk{Type: "content", Delta: resp.Content}); err != nil {
+			return err
+		}
+	}
+	return handler(core.StreamChunk{Type: "end", FinishReason: resp.FinishReason})
+}

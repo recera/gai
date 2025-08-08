@@ -154,6 +154,20 @@ func (c *geminiClient) transformMessages(messages []core.Message) []geminiConten
 	return geminiContents
 }
 
+// StreamCompletion is a basic emulation for Gemini (no official SSE here); it will perform a single call and emit as one chunk
+func (c *geminiClient) StreamCompletion(ctx context.Context, parts core.LLMCallParts, handler core.StreamHandler) error {
+	resp, err := c.GetCompletion(ctx, parts)
+	if err != nil {
+		return err
+	}
+	if resp.Content != "" {
+		if err := handler(core.StreamChunk{Type: "content", Delta: resp.Content}); err != nil {
+			return err
+		}
+	}
+	return handler(core.StreamChunk{Type: "end", FinishReason: resp.FinishReason})
+}
+
 func (c *geminiClient) formatRole(role string) string {
 	if role == "assistant" {
 		return "model"

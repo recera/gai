@@ -76,6 +76,12 @@ func (p *LLMCallParts) WithMessage(msg Message) *LLMCallParts {
 	return p
 }
 
+// WithTools sets provider-native tool/function definitions
+func (p *LLMCallParts) WithTools(tools ...ToolDefinition) *LLMCallParts {
+	p.Tools = append([]ToolDefinition{}, tools...)
+	return p
+}
+
 // WithMessages adds multiple messages to the conversation
 func (p *LLMCallParts) WithMessages(msgs ...Message) *LLMCallParts {
 	for _, msg := range msgs {

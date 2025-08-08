@@ -17,6 +17,10 @@ type TextContent = core.TextContent
 type ImageContent = core.ImageContent
 type LLMResponse = core.LLMResponse
 type TokenUsage = core.TokenUsage
+type ToolDefinition = core.ToolDefinition
+type ToolCall = core.ToolCall
+type StreamChunk = core.StreamChunk
+type StreamHandler = core.StreamHandler
 
 // NewLLMCallParts creates a new LLMCallParts with default values
 func NewLLMCallParts() *LLMCallParts {

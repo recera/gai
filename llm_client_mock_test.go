@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
 )
 
 // mockProviderClient is a test implementation of ProviderClient
@@ -16,7 +15,7 @@ type mockProviderClient struct {
 func (m *mockProviderClient) GetCompletion(ctx context.Context, parts LLMCallParts) (LLMResponse, error) {
 	// For testing, we'll just return a predetermined response
 	return LLMResponse{
-		Content: `{"mammals": ["dog"], "birds": ["eagle"], "fish": ["salmon"]}`,
+		Content:      `{"mammals": ["dog"], "birds": ["eagle"], "fish": ["salmon"]}`,
 		FinishReason: "stop",
 		Usage: TokenUsage{
 			PromptTokens:     10,
@@ -42,7 +41,7 @@ func TestLLMClientWithMock(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	type Animals struct {
 		Mammals []string `json:"mammals"`
 		Birds   []string `json:"birds"`
@@ -91,6 +90,24 @@ func (t *testClient) GetResponseObject(ctx context.Context, parts LLMCallParts, 
 	return ParseInto(response.Content, v)
 }
 
+// Satisfy new interface methods for tests
+func (t *testClient) StreamCompletion(ctx context.Context, parts LLMCallParts, handler StreamHandler) error {
+	resp, err := t.GetCompletion(ctx, parts)
+	if err != nil {
+		return err
+	}
+	if resp.Content != "" {
+		if err := handler(StreamChunk{Type: "content", Delta: resp.Content}); err != nil {
+			return err
+		}
+	}
+	return handler(StreamChunk{Type: "end", FinishReason: resp.FinishReason})
+}
+
+func (t *testClient) RunWithTools(ctx context.Context, parts LLMCallParts, executor func(call ToolCall) (string, error)) (LLMResponse, error) {
+	return t.GetCompletion(ctx, parts)
+}
+
 // TestOpenAIProviderWithHTTPMock tests the OpenAI provider with a mock HTTP server
 func TestOpenAIProviderWithHTTPMock(t *testing.T) {
 	// Create a mock HTTP server
@@ -131,7 +148,7 @@ func TestOpenAIProviderWithHTTPMock(t *testing.T) {
 	// Create OpenAI client with mock server URL
 	// Note: This would require modifying the provider to accept a custom base URL
 	// For now, this demonstrates the pattern
-	
+
 	// This test demonstrates the pattern, but would need provider modifications
 	// to actually inject the mock server URL
 	t.Log("Mock server created at:", server.URL)
@@ -191,8 +208,8 @@ func TestErrorHandling(t *testing.T) {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr || 
-		   len(s) > len(substr) && containsHelper(s[1:], substr)
+	return len(s) >= len(substr) && s[:len(substr)] == substr ||
+		len(s) > len(substr) && containsHelper(s[1:], substr)
 }
 
 func containsHelper(s, substr string) bool {

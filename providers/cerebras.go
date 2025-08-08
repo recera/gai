@@ -26,11 +26,11 @@ func NewCerebrasClient(apiKey string) core.ProviderClient {
 
 // cerebras response structs (follows OpenAI format)
 type cerebrasResponse struct {
-	ID      string             `json:"id"`
-	Object  string             `json:"object"`
-	Created int64              `json:"created"`
-	Model   string             `json:"model"`
-	Choices []cerebrasChoice   `json:"choices"`
+	ID      string              `json:"id"`
+	Object  string              `json:"object"`
+	Created int64               `json:"created"`
+	Model   string              `json:"model"`
+	Choices []cerebrasChoice    `json:"choices"`
 	Usage   cerebrasUsageTokens `json:"usage"`
 }
 
@@ -117,7 +117,7 @@ func (c *cerebrasClient) GetCompletion(ctx context.Context, parts core.LLMCallPa
 
 func (c *cerebrasClient) transformMessages(messages []core.Message, systemMessage core.Message) []cerebrasMessage {
 	var cerebrasMessages []cerebrasMessage
-	
+
 	// Add system message first if it has content
 	if len(systemMessage.Contents) > 0 {
 		var systemContent string
@@ -133,7 +133,7 @@ func (c *cerebrasClient) transformMessages(messages []core.Message, systemMessag
 			})
 		}
 	}
-	
+
 	// Add regular messages
 	for _, msg := range messages {
 		var contentStr string
@@ -148,4 +148,18 @@ func (c *cerebrasClient) transformMessages(messages []core.Message, systemMessag
 		})
 	}
 	return cerebrasMessages
+}
+
+// StreamCompletion emulates streaming for Cerebras by performing a one-shot request
+func (c *cerebrasClient) StreamCompletion(ctx context.Context, parts core.LLMCallParts, handler core.StreamHandler) error {
+	resp, err := c.GetCompletion(ctx, parts)
+	if err != nil {
+		return err
+	}
+	if resp.Content != "" {
+		if err := handler(core.StreamChunk{Type: "content", Delta: resp.Content}); err != nil {
+			return err
+		}
+	}
+	return handler(core.StreamChunk{Type: "end", FinishReason: resp.FinishReason})
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/recera/gai/core"
 )
@@ -59,6 +60,23 @@ func (c *openAIClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 		Temperature: parts.Temperature,
 	}
 
+	// Add tools if provided
+	if len(parts.Tools) > 0 {
+		tools := make([]openAITool, 0, len(parts.Tools))
+		for _, t := range parts.Tools {
+			tools = append(tools, openAITool{
+				Type: "function",
+				Function: openAIFunction{
+					Name:        t.Name,
+					Description: t.Description,
+					Parameters:  t.JSONSchema,
+				},
+			})
+		}
+		reqBody.Tools = tools
+		// Let model decide tools automatically; caller can override in future API if needed
+	}
+
 	reqBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error marshalling request: %w", err), "openai", parts.Model)
@@ -101,6 +119,18 @@ func (c *openAIClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 		return emptyResponse, core.NewLLMError(fmt.Errorf("response contained no choices"), "openai", parts.Model)
 	}
 
+	// Map tool calls if any
+	var toolCalls []core.ToolCall
+	if len(apiResponse.Choices[0].Message.ToolCalls) > 0 {
+		for _, tc := range apiResponse.Choices[0].Message.ToolCalls {
+			toolCalls = append(toolCalls, core.ToolCall{
+				ID:        tc.ID,
+				Name:      tc.Function.Name,
+				Arguments: tc.Function.Arguments,
+			})
+		}
+	}
+
 	// Map to the unified LLMResponse
 	unifiedResponse := core.LLMResponse{
 		Content:      apiResponse.Choices[0].Message.Content,
@@ -110,6 +140,7 @@ func (c *openAIClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 			CompletionTokens: apiResponse.Usage.CompletionTokens,
 			TotalTokens:      apiResponse.Usage.TotalTokens,
 		},
+		ToolCalls: toolCalls,
 	}
 
 	return unifiedResponse, nil
@@ -146,4 +177,106 @@ func (c *openAIClient) transformMessagesWithSystem(messages []core.Message, syst
 		}
 	}
 	return append(result, c.transformMessages(messages)...)
+}
+
+// StreamCompletion implements SSE streaming for OpenAI chat.completions
+func (c *openAIClient) StreamCompletion(ctx context.Context, parts core.LLMCallParts, handler core.StreamHandler) error {
+	if c.apiKey == "" {
+		return core.NewLLMError(fmt.Errorf("API key is not set"), "openai", parts.Model)
+	}
+	transformed := c.transformMessagesWithSystem(parts.Messages, parts.System)
+	reqBody := map[string]interface{}{
+		"model":       parts.Model,
+		"messages":    transformed,
+		"max_tokens":  parts.MaxTokens,
+		"temperature": parts.Temperature,
+		"stream":      true,
+	}
+	if len(parts.Tools) > 0 {
+		tools := make([]openAITool, 0, len(parts.Tools))
+		for _, t := range parts.Tools {
+			tools = append(tools, openAITool{Type: "function", Function: openAIFunction{Name: t.Name, Description: t.Description, Parameters: t.JSONSchema}})
+		}
+		reqBody["tools"] = tools
+	}
+
+	reqBytes, _ := json.Marshal(reqBody)
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("openai stream status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// The OpenAI stream uses SSE where each line begins with 'data:'. We'll do a simple scan.
+	// For simplicity here we decode JSON tokens directly if present, else treat as plain lines.
+	// Minimal implementation: accumulate deltas only.
+	type streamChoiceDelta struct {
+		Delta struct {
+			Content string `json:"content"`
+		} `json:"delta"`
+		FinishReason string `json:"finish_reason"`
+		Index        int    `json:"index"`
+	}
+	type streamEvent struct {
+		Choices []streamChoiceDelta `json:"choices"`
+	}
+	// Fallback line-by-line reader to handle SSE "data: {json}"
+	buf := make([]byte, 0, 4096)
+	tmp := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(tmp)
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+			// Split on newlines and parse any JSON after "data: "
+			for {
+				i := bytes.IndexByte(buf, '\n')
+				if i < 0 {
+					break
+				}
+				line := string(bytes.TrimSpace(buf[:i]))
+				buf = buf[i+1:]
+				if !strings.HasPrefix(line, "data:") {
+					continue
+				}
+				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+				if payload == "[DONE]" {
+					_ = handler(core.StreamChunk{Type: "end"})
+					return nil
+				}
+				var ev streamEvent
+				if err := json.Unmarshal([]byte(payload), &ev); err == nil {
+					for _, ch := range ev.Choices {
+						if ch.Delta.Content != "" {
+							if err := handler(core.StreamChunk{Type: "content", Delta: ch.Delta.Content}); err != nil {
+								return err
+							}
+						}
+						if ch.FinishReason != "" {
+							if err := handler(core.StreamChunk{Type: "end", FinishReason: ch.FinishReason}); err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+	}
+	return nil
 }

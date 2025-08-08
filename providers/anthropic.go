@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/recera/gai/core"
 )
@@ -138,4 +139,95 @@ func (c *anthropicClient) transformMessages(messages []core.Message) []anthropic
 		})
 	}
 	return anthropicMessages
+}
+
+// StreamCompletion implements a minimal line-based streaming for Anthropic messages streaming API
+func (c *anthropicClient) StreamCompletion(ctx context.Context, parts core.LLMCallParts, handler core.StreamHandler) error {
+	if c.apiKey == "" {
+		return core.NewLLMError(fmt.Errorf("API key is not set"), "anthropic", parts.Model)
+	}
+	// Anthropic streaming uses the messages API with header "anthropic-version", and stream=true via SSE.
+	// We'll request text deltas by setting stream=true&stream_tokens=true equivalent JSON body.
+	body := map[string]interface{}{
+		"model":       parts.Model,
+		"max_tokens":  parts.MaxTokens,
+		"temperature": parts.Temperature,
+		"messages":    c.transformMessages(parts.Messages),
+		"stream":      true,
+	}
+	if len(parts.System.Contents) > 0 {
+		if textContent, ok := parts.System.Contents[0].(core.TextContent); ok {
+			body["system"] = textContent.Text
+		}
+	}
+
+	reqBytes, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", c.apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("anthropic stream status %d: %s", resp.StatusCode, string(b))
+	}
+
+	// SSE lines that start with "data: {json}"
+	buf := make([]byte, 0, 4096)
+	tmp := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(tmp)
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+			for {
+				i := bytes.IndexByte(buf, '\n')
+				if i < 0 {
+					break
+				}
+				line := string(bytes.TrimSpace(buf[:i]))
+				buf = buf[i+1:]
+				if !strings.HasPrefix(line, "data:") {
+					continue
+				}
+				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+				if payload == "[DONE]" {
+					_ = handler(core.StreamChunk{Type: "end"})
+					return nil
+				}
+				// Anthropic events include content_block_delta with {"delta":{"type":"text_delta","text":"..."}}
+				var generic map[string]interface{}
+				if err := json.Unmarshal([]byte(payload), &generic); err == nil {
+					if generic["type"] == "content_block_delta" {
+						if delta, ok := generic["delta"].(map[string]interface{}); ok {
+							if t, ok := delta["text"].(string); ok && t != "" {
+								if err := handler(core.StreamChunk{Type: "content", Delta: t}); err != nil {
+									return err
+								}
+							}
+						}
+					}
+					if fr, ok := generic["stop_reason"].(string); ok && fr != "" {
+						if err := handler(core.StreamChunk{Type: "end", FinishReason: fr}); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+	}
+	return nil
 }
