@@ -31,6 +31,9 @@ type City struct { Name string `json:"name"`; Pop int `json:"pop"` }
 city, usage, err := gai.GenerateObject[City](ctx, client, parts.Value())
 ```
 
-- OpenAI: `response_format: json_schema` engaged automatically
+- OpenAI: `response_format: json_schema` engaged automatically when using `GenerateObject[T]`.
 - Gemini: set `parts.ProviderOpts["response_schema"] = <json schema>`
+
+Notes:
+- You can cap the number of tool loop steps (blocking and streaming) with `WithToolLoopMaxSteps(n)`.
 

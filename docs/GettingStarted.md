@@ -29,7 +29,12 @@ Or pass keys directly:
 ```go
 client, err := gai.NewClient(
   gai.WithOpenAIKey(os.Getenv("OPENAI_API_KEY")),
+  // Defaults are unset by default; set them for convenience:
   gai.WithDefaultProvider("openai"),
+  gai.WithDefaultModel("gpt-4o-mini"),
+  gai.WithHTTPTimeout(60*time.Second),
+  gai.WithMaxRetries(3),
+  gai.WithBackoff(200*time.Millisecond, 5*time.Second, 0.2),
 )
 ```
 
@@ -49,7 +54,10 @@ fmt.Println(resp.Content)
 ```go
 _ = client.StreamCompletion(ctx, parts.Value(), func(ch gai.StreamChunk) error {
   if ch.Type == "content" { fmt.Print(ch.Delta) }
-  if ch.Type == "end" { fmt.Println("\n[done]", ch.FinishReason) }
+  if ch.Type == "end" {
+    fmt.Println("\n[done]", ch.FinishReason)
+    if ch.Usage != nil { fmt.Printf("usage: %+v\n", *ch.Usage) }
+  }
   return nil
 })
 ```

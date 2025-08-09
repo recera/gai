@@ -12,16 +12,26 @@ import (
 )
 
 type groqClient struct {
-	apiKey string
-	client *http.Client
+	apiKey    string
+	client    *http.Client
+	baseURL   string
+	userAgent string
 }
 
 // NewGroqClient creates a new client for the Groq API.
 func NewGroqClient(apiKey string) core.ProviderClient {
-	return &groqClient{
-		apiKey: apiKey,
-		client: &http.Client{},
+	return NewGroqClientWithConfig(apiKey, ProviderHTTPConfig{})
+}
+
+func NewGroqClientWithConfig(apiKey string, cfg ProviderHTTPConfig) core.ProviderClient {
+	c := &groqClient{apiKey: apiKey, client: cfg.HTTPClient, baseURL: "https://api.groq.com/openai/v1", userAgent: cfg.UserAgent}
+	if c.client == nil {
+		c.client = &http.Client{}
 	}
+	if cfg.BaseURL != "" {
+		c.baseURL = cfg.BaseURL
+	}
+	return c
 }
 
 // groq response structs (follows OpenAI format)
@@ -65,13 +75,16 @@ func (c *groqClient) GetCompletion(ctx context.Context, parts core.LLMCallParts)
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error marshalling request: %w", err), "groq", parts.Model)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(reqBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error creating request: %w", err), "groq", parts.Model)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -88,6 +101,7 @@ func (c *groqClient) GetCompletion(ctx context.Context, parts core.LLMCallParts)
 		err := core.NewLLMError(fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes)), "groq", parts.Model)
 		err.StatusCode = resp.StatusCode
 		err.LastRaw = string(bodyBytes)
+		err.RequestID = resp.Header.Get("x-request-id")
 		return emptyResponse, err
 	}
 

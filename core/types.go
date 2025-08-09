@@ -197,4 +197,12 @@ type LLMError struct {
 
 	// Additional context about the error
 	Context map[string]interface{}
+
+	// RequestID is a provider-specific request identifier if available
+	RequestID string
+
+	// Rate limit related metadata when available (provider-specific)
+	RateLimitLimit     string
+	RateLimitRemaining string
+	RateLimitReset     string
 }

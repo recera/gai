@@ -16,7 +16,13 @@ prov := middleware.Chain(base,
 Applies defaults to `LLMCallParts` when unset.
 
 ## Logger
-Logs start/end of calls.
+Logs start/end of calls. Optionally accepts a redactor to scrub values.
+
+```go
+prov := middleware.Chain(base,
+  middleware.Logger(func(s string) string { return "[redacted]" }),
+)
+```
 
 ## SimulatedStreaming
 Emulates streaming by chunking blocking responses.

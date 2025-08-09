@@ -14,16 +14,26 @@ import (
 )
 
 type anthropicClient struct {
-	apiKey string
-	client *http.Client
+	apiKey    string
+	client    *http.Client
+	baseURL   string
+	userAgent string
 }
 
 // NewAnthropicClient creates a new client for the Anthropic API.
 func NewAnthropicClient(apiKey string) core.ProviderClient {
-	return &anthropicClient{
-		apiKey: apiKey,
-		client: &http.Client{},
+	return NewAnthropicClientWithConfig(apiKey, ProviderHTTPConfig{})
+}
+
+func NewAnthropicClientWithConfig(apiKey string, cfg ProviderHTTPConfig) core.ProviderClient {
+	c := &anthropicClient{apiKey: apiKey, client: cfg.HTTPClient, baseURL: "https://api.anthropic.com/v1", userAgent: cfg.UserAgent}
+	if c.client == nil {
+		c.client = &http.Client{}
 	}
+	if cfg.BaseURL != "" {
+		c.baseURL = cfg.BaseURL
+	}
+	return c
 }
 
 // anthropic response structs
@@ -89,7 +99,7 @@ func (c *anthropicClient) GetCompletion(ctx context.Context, parts core.LLMCallP
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error marshalling request: %w", err), "anthropic", parts.Model)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(reqBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/messages", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error creating request: %w", err), "anthropic", parts.Model)
 	}
@@ -97,6 +107,9 @@ func (c *anthropicClient) GetCompletion(ctx context.Context, parts core.LLMCallP
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", c.apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -113,6 +126,10 @@ func (c *anthropicClient) GetCompletion(ctx context.Context, parts core.LLMCallP
 		err := core.NewLLMError(fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes)), "anthropic", parts.Model)
 		err.StatusCode = resp.StatusCode
 		err.LastRaw = string(bodyBytes)
+		err.RequestID = resp.Header.Get("x-request-id")
+		err.RateLimitLimit = resp.Header.Get("anthropic-ratelimit-requests-limit")
+		err.RateLimitRemaining = resp.Header.Get("anthropic-ratelimit-requests-remaining")
+		err.RateLimitReset = resp.Header.Get("anthropic-ratelimit-requests-reset")
 		return emptyResponse, err
 	}
 
@@ -207,13 +224,16 @@ func (c *anthropicClient) StreamCompletion(ctx context.Context, parts core.LLMCa
 	}
 
 	reqBytes, _ := json.Marshal(body)
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(reqBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/messages", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", c.apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {

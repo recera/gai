@@ -11,7 +11,10 @@ import (
 
 	"strings"
 
+	"net/http"
+
 	"github.com/joho/godotenv"
+	"github.com/recera/gai/providers"
 	"github.com/recera/gai/registry"
 )
 
@@ -76,15 +79,37 @@ func NewClient(opts ...ClientOption) (LLMClient, error) {
 	}
 
 	reg := registry.New()
-	cl := &client{
-		openAI:    newOpenAIClient(openAIKey),
-		anthropic: newAnthropicClient(anthropicKey),
-		gemini:    newGeminiClient(geminiKey),
-		groq:      newGroqClient(groqKey),
-		cerebras:  newCerebrasClient(cerebrasKey),
-		cfg:       cfg,
-		reg:       reg,
-	}
+	// Shared HTTP client honoring timeout
+	httpClient := &http.Client{Timeout: cfg.HTTPTimeout}
+
+	// Build provider clients with config
+	cl := &client{cfg: cfg, reg: reg}
+	cl.openAI = providers.NewOpenAIClientWithConfig(openAIKey, providers.ProviderHTTPConfig{
+		HTTPClient:         httpClient,
+		BaseURL:            cfg.OpenAIBaseURL,
+		UserAgent:          cfg.UserAgent,
+		OpenAIIncludeUsage: cfg.OpenAIIncludeUsageInStream,
+	})
+	cl.anthropic = providers.NewAnthropicClientWithConfig(anthropicKey, providers.ProviderHTTPConfig{
+		HTTPClient: httpClient,
+		BaseURL:    cfg.AnthropicBaseURL,
+		UserAgent:  cfg.UserAgent,
+	})
+	cl.gemini = providers.NewGeminiClientWithConfig(geminiKey, providers.ProviderHTTPConfig{
+		HTTPClient: httpClient,
+		BaseURL:    cfg.GeminiBaseURL,
+		UserAgent:  cfg.UserAgent,
+	})
+	cl.groq = providers.NewGroqClientWithConfig(groqKey, providers.ProviderHTTPConfig{
+		HTTPClient: httpClient,
+		BaseURL:    cfg.GroqBaseURL,
+		UserAgent:  cfg.UserAgent,
+	})
+	cl.cerebras = providers.NewCerebrasClientWithConfig(cerebrasKey, providers.ProviderHTTPConfig{
+		HTTPClient: httpClient,
+		BaseURL:    cfg.CerebrasBaseURL,
+		UserAgent:  cfg.UserAgent,
+	})
 	// Register providers for model key resolution
 	reg.Register("openai", cl.openAI)
 	reg.Register("anthropic", cl.anthropic)
@@ -161,12 +186,95 @@ func (c *client) GetCompletion(ctx context.Context, parts LLMCallParts) (LLMResp
 		if err == nil {
 			return resp, nil
 		}
+		// Retry classification
+		if attempt < attempts && shouldRetry(err) {
+			sleep := backoffDuration(c.cfg.BackoffInitial, c.cfg.BackoffMax, c.cfg.BackoffJitter, attempt)
+			if ra := retryAfterFromError(err); ra > 0 {
+				sleep = ra
+			}
+			select {
+			case <-ctx.Done():
+				return resp, ctx.Err()
+			case <-time.After(sleep):
+			}
+			continue
+		}
 	}
 	return resp, err
 }
 
 func (c *client) GetResponseObject(ctx context.Context, parts LLMCallParts, v any) error {
 	return p.GetResponseObject(ctx, c, v, parts)
+}
+
+// shouldRetry classifies errors for retry.
+func shouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Unwrap LLMError to look at status codes
+	if le, ok := err.(*core.LLMError); ok {
+		if le.StatusCode == 0 {
+			return true
+		} // transport errors
+		if le.StatusCode == 429 || le.StatusCode >= 500 {
+			return true
+		}
+		return false
+	}
+	// Fallback: temporary network errors could be retried; keep simple
+	return true
+}
+
+// retryAfterFromError extracts Retry-After duration from an error if present in context
+func retryAfterFromError(err error) time.Duration {
+	if le, ok := err.(*core.LLMError); ok {
+		if v, ok2 := le.Context["retry_after_seconds"]; ok2 {
+			if secs, ok3 := v.(int); ok3 {
+				return time.Duration(secs) * time.Second
+			}
+			if f, ok3 := v.(float64); ok3 {
+				return time.Duration(f*1000) * time.Millisecond
+			}
+		}
+	}
+	return 0
+}
+
+// backoffDuration computes exponential backoff with jitter
+func backoffDuration(initial, max time.Duration, jitter float64, attempt int) time.Duration {
+	if initial <= 0 {
+		initial = 200 * time.Millisecond
+	}
+	if max <= 0 {
+		max = 5 * time.Second
+	}
+	if jitter < 0 {
+		jitter = 0
+	}
+	if jitter > 1 {
+		jitter = 1
+	}
+	d := initial
+	for i := 1; i < attempt; i++ {
+		d *= 2
+		if d > max {
+			d = max
+			break
+		}
+	}
+	if jitter > 0 {
+		// simple +/- jitter
+		j := float64(d) * jitter
+		// use time.Now().UnixNano() as a cheap source of pseudo-randomness
+		r := (time.Now().UnixNano() % 2000) - 1000 // -1000..+999
+		frac := float64(r) / 1000.0                // ~-1..+0.999
+		d = time.Duration(float64(d) + frac*j)
+		if d < 0 {
+			d = initial
+		}
+	}
+	return d
 }
 
 // StreamCompletion routes a streaming request to the appropriate provider
@@ -228,7 +336,11 @@ func (c *client) StreamWithTools(ctx context.Context, parts LLMCallParts, execut
 	}
 
 	// Drive streaming; if a tool_call happens, we recursively resume until finish
-	for step := 0; step < 8; step++ {
+	maxSteps := c.cfg.ToolLoopMaxSteps
+	if maxSteps <= 0 {
+		maxSteps = 8
+	}
+	for step := 0; step < maxSteps; step++ {
 		toolCallHappened = false
 		if err := c.StreamCompletion(ctx, parts, wrapped); err != nil {
 			return err
@@ -249,7 +361,11 @@ func (c *client) RunWithTools(ctx context.Context, parts LLMCallParts, executor 
 	}
 
 	// We'll loop up to a small cap to avoid infinite recursion
-	for step := 0; step < 8; step++ {
+	maxSteps := c.cfg.ToolLoopMaxSteps
+	if maxSteps <= 0 {
+		maxSteps = 8
+	}
+	for step := 0; step < maxSteps; step++ {
 		resp, err := c.GetCompletion(ctx, parts)
 		if err != nil {
 			return resp, err

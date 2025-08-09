@@ -68,7 +68,7 @@ func defaultProvider() string {
 			return s
 		}
 	}
-	return "cerebras"
+	return ""
 }
 
 func defaultModel() string {
@@ -77,5 +77,5 @@ func defaultModel() string {
 			return s
 		}
 	}
-	return "llama-3.3-70b"
+	return ""
 }

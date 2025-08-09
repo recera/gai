@@ -12,16 +12,26 @@ import (
 )
 
 type geminiClient struct {
-	apiKey string
-	client *http.Client
+	apiKey    string
+	client    *http.Client
+	baseURL   string
+	userAgent string
 }
 
 // NewGeminiClient creates a new client for the Google Gemini API.
 func NewGeminiClient(apiKey string) core.ProviderClient {
-	return &geminiClient{
-		apiKey: apiKey,
-		client: &http.Client{},
+	return NewGeminiClientWithConfig(apiKey, ProviderHTTPConfig{})
+}
+
+func NewGeminiClientWithConfig(apiKey string, cfg ProviderHTTPConfig) core.ProviderClient {
+	c := &geminiClient{apiKey: apiKey, client: cfg.HTTPClient, baseURL: "https://generativelanguage.googleapis.com/v1beta", userAgent: cfg.UserAgent}
+	if c.client == nil {
+		c.client = &http.Client{}
 	}
+	if cfg.BaseURL != "" {
+		c.baseURL = cfg.BaseURL
+	}
+	return c
 }
 
 // gemini response structs
@@ -52,7 +62,7 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 		return emptyResponse, core.NewLLMError(fmt.Errorf("API key is not set"), "gemini", parts.Model)
 	}
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", parts.Model, c.apiKey)
+	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", c.baseURL, parts.Model, c.apiKey)
 
 	// Gemini tends to accept instructions as part of content. Prepend a system preamble if present.
 	contents := c.transformMessages(parts.Messages)
@@ -100,6 +110,9 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
 	for k, v := range parts.Headers {
 		if k == "Content-Type" {
 			continue
@@ -122,6 +135,7 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 		err := core.NewLLMError(fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes)), "gemini", parts.Model)
 		err.StatusCode = resp.StatusCode
 		err.LastRaw = string(bodyBytes)
+		err.RequestID = resp.Header.Get("x-request-id")
 		return emptyResponse, err
 	}
 

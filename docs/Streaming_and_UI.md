@@ -9,11 +9,17 @@ http.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
   ch := make(chan gai.StreamChunk)
   go func(){
     defer close(ch)
-    _ = client.StreamCompletion(ctx, parts.Value(), func(s gai.StreamChunk) error { ch <- s; return nil })
+    _ = client.StreamCompletion(ctx, parts.Value(), func(s gai.StreamChunk) error {
+      ch <- s
+      return nil
+    })
   }()
   uistream.Write(w, ch)
 })
 ```
+Notes:
+- The server sets `Content-Type: text/event-stream` and `x-vercel-ai-ui-message-stream: v1` via `uistream.Write`.
+- End events may include `Usage` when supported by the provider (enable for OpenAI with `WithOpenAIIncludeUsageInStream(true)`).
 
 ## Client
 

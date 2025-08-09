@@ -2,6 +2,7 @@ package gai
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"text/template"
 )
@@ -82,8 +83,11 @@ func RenderAssistantTemplate(p *LLMCallParts, tpl *PromptTemplate, data any) err
 // Common template functions that can be useful
 var CommonTemplateFuncs = template.FuncMap{
 	"json": func(v interface{}) string {
-		// This is a simplified version - in production you'd want proper JSON encoding
-		return fmt.Sprintf("%#v", v)
+		b, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("\"%v\"", v)
+		}
+		return string(b)
 	},
 	"quote": func(s string) string {
 		return fmt.Sprintf("%q", s)

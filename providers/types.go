@@ -1,5 +1,16 @@
 package providers
 
+import "net/http"
+
+// ProviderHTTPConfig controls HTTP client and endpoint behavior for providers.
+type ProviderHTTPConfig struct {
+	HTTPClient *http.Client
+	BaseURL    string
+	UserAgent  string
+	// OpenAI only: include usage events in stream when supported
+	OpenAIIncludeUsage bool
+}
+
 // --- OpenAI Specific Types ---
 type openAIRequest struct {
 	Model          string          `json:"model"`

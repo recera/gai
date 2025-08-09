@@ -12,16 +12,26 @@ import (
 )
 
 type cerebrasClient struct {
-	apiKey string
-	client *http.Client
+	apiKey    string
+	client    *http.Client
+	baseURL   string
+	userAgent string
 }
 
 // NewCerebrasClient creates a new client for the Cerebras API.
 func NewCerebrasClient(apiKey string) core.ProviderClient {
-	return &cerebrasClient{
-		apiKey: apiKey,
-		client: &http.Client{},
+	return NewCerebrasClientWithConfig(apiKey, ProviderHTTPConfig{})
+}
+
+func NewCerebrasClientWithConfig(apiKey string, cfg ProviderHTTPConfig) core.ProviderClient {
+	c := &cerebrasClient{apiKey: apiKey, client: cfg.HTTPClient, baseURL: "https://api.cerebras.ai/v1", userAgent: cfg.UserAgent}
+	if c.client == nil {
+		c.client = &http.Client{}
 	}
+	if cfg.BaseURL != "" {
+		c.baseURL = cfg.BaseURL
+	}
+	return c
 }
 
 // cerebras response structs (follows OpenAI format)
@@ -64,13 +74,16 @@ func (c *cerebrasClient) GetCompletion(ctx context.Context, parts core.LLMCallPa
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error marshalling request: %w", err), "cerebras", parts.Model)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.cerebras.ai/v1/chat/completions", bytes.NewBuffer(reqBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error creating request: %w", err), "cerebras", parts.Model)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -87,6 +100,7 @@ func (c *cerebrasClient) GetCompletion(ctx context.Context, parts core.LLMCallPa
 		err := core.NewLLMError(fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes)), "cerebras", parts.Model)
 		err.StatusCode = resp.StatusCode
 		err.LastRaw = string(bodyBytes)
+		err.RequestID = resp.Header.Get("x-request-id")
 		return emptyResponse, err
 	}
 

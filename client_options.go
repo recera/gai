@@ -9,17 +9,28 @@ type ClientOption func(*clientOptions)
 
 // clientOptions holds the configuration for the LLM client
 type clientOptions struct {
-	HTTPTimeout      time.Duration
-	MaxRetries       int
-	OpenAIKey        string
-	AnthropicKey     string
-	GeminiKey        string
-	GroqKey          string
-	CerebrasKey      string
-	EnvFilePath      string
-	DisableEnvLoader bool
-	DefaultProvider  string
-	DefaultModel     string
+	HTTPTimeout                time.Duration
+	MaxRetries                 int
+	BackoffInitial             time.Duration
+	BackoffMax                 time.Duration
+	BackoffJitter              float64
+	OpenAIKey                  string
+	AnthropicKey               string
+	GeminiKey                  string
+	GroqKey                    string
+	CerebrasKey                string
+	EnvFilePath                string
+	DisableEnvLoader           bool
+	DefaultProvider            string
+	DefaultModel               string
+	UserAgent                  string
+	OpenAIBaseURL              string
+	AnthropicBaseURL           string
+	GeminiBaseURL              string
+	GroqBaseURL                string
+	CerebrasBaseURL            string
+	OpenAIIncludeUsageInStream bool
+	ToolLoopMaxSteps           int
 }
 
 // WithHTTPTimeout sets the HTTP timeout for API calls
@@ -33,6 +44,15 @@ func WithHTTPTimeout(d time.Duration) ClientOption {
 func WithMaxRetries(n int) ClientOption {
 	return func(o *clientOptions) {
 		o.MaxRetries = n
+	}
+}
+
+// WithBackoff configures exponential backoff parameters used during retries.
+func WithBackoff(initial, max time.Duration, jitter float64) ClientOption {
+	return func(o *clientOptions) {
+		o.BackoffInitial = initial
+		o.BackoffMax = max
+		o.BackoffJitter = jitter
 	}
 }
 
@@ -99,12 +119,44 @@ func WithDefaultModel(model string) ClientOption {
 	}
 }
 
+func WithUserAgent(ua string) ClientOption { return func(o *clientOptions) { o.UserAgent = ua } }
+
+func WithProviderBaseURL(provider, baseURL string) ClientOption {
+	return func(o *clientOptions) {
+		switch provider {
+		case "openai":
+			o.OpenAIBaseURL = baseURL
+		case "anthropic":
+			o.AnthropicBaseURL = baseURL
+		case "gemini":
+			o.GeminiBaseURL = baseURL
+		case "groq":
+			o.GroqBaseURL = baseURL
+		case "cerebras":
+			o.CerebrasBaseURL = baseURL
+		}
+	}
+}
+
+func WithOpenAIIncludeUsageInStream(enable bool) ClientOption {
+	return func(o *clientOptions) { o.OpenAIIncludeUsageInStream = enable }
+}
+
+func WithToolLoopMaxSteps(n int) ClientOption {
+	return func(o *clientOptions) { o.ToolLoopMaxSteps = n }
+}
+
 // getDefaultOptions returns the default client options
 func getDefaultOptions() clientOptions {
 	return clientOptions{
-		HTTPTimeout:     30 * time.Second,
-		MaxRetries:      3,
-		DefaultProvider: "cerebras",
-		DefaultModel:    "llama-3.3-70b",
+		HTTPTimeout:      30 * time.Second,
+		MaxRetries:       3,
+		BackoffInitial:   200 * time.Millisecond,
+		BackoffMax:       5 * time.Second,
+		BackoffJitter:    0.2,
+		DefaultProvider:  "",
+		DefaultModel:     "",
+		UserAgent:        "gai/0.1 (+github.com/recera/gai)",
+		ToolLoopMaxSteps: 8,
 	}
 }

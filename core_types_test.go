@@ -6,13 +6,13 @@ import (
 
 func TestNewLLMCallParts(t *testing.T) {
 	parts := NewLLMCallParts()
-	
+
 	// Check defaults
-	if parts.Provider != "cerebras" {
-		t.Errorf("Expected default provider to be cerebras, got %s", parts.Provider)
+	if parts.Provider != "" {
+		t.Errorf("Expected default provider to be empty, got %s", parts.Provider)
 	}
-	if parts.Model != "llama-3.3-70b" {
-		t.Errorf("Expected default model to be llama-3.3-70b, got %s", parts.Model)
+	if parts.Model != "" {
+		t.Errorf("Expected default model to be empty, got %s", parts.Model)
 	}
 	if parts.MaxTokens != 1000 {
 		t.Errorf("Expected default max tokens to be 1000, got %d", parts.MaxTokens)
@@ -31,7 +31,7 @@ func TestLLMCallPartsBuilder(t *testing.T) {
 		WithSystem("You are helpful").
 		WithUserMessage("Hello").
 		WithAssistantMessage("Hi there!")
-	
+
 	if parts.Provider != "openai" {
 		t.Errorf("Expected provider to be openai, got %s", parts.Provider)
 	}
@@ -44,12 +44,12 @@ func TestLLMCallPartsBuilder(t *testing.T) {
 	if parts.MaxTokens != 2000 {
 		t.Errorf("Expected max tokens to be 2000, got %d", parts.MaxTokens)
 	}
-	
+
 	// Check system message
 	if parts.System.GetTextContent() != "You are helpful" {
 		t.Errorf("Expected system message to be 'You are helpful', got %s", parts.System.GetTextContent())
 	}
-	
+
 	// Check messages
 	if len(parts.Messages) != 2 {
 		t.Fatalf("Expected 2 messages, got %d", len(parts.Messages))
@@ -88,7 +88,7 @@ func TestMessageConstructors(t *testing.T) {
 			wantText: "You are helpful",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.message.Role != tt.wantRole {
@@ -106,22 +106,22 @@ func TestMessageBuilder(t *testing.T) {
 		WithText("Check this image:").
 		WithImage("image/png", []byte("fake-image-data")).
 		Build()
-	
+
 	if msg.Role != "user" {
 		t.Errorf("Expected role to be user, got %s", msg.Role)
 	}
-	
+
 	if len(msg.Contents) != 2 {
 		t.Fatalf("Expected 2 contents, got %d", len(msg.Contents))
 	}
-	
+
 	// Check text content
 	if textContent, ok := msg.Contents[0].(TextContent); !ok {
 		t.Errorf("Expected first content to be TextContent")
 	} else if textContent.Text != "Check this image:" {
 		t.Errorf("Expected text 'Check this image:', got %s", textContent.Text)
 	}
-	
+
 	// Check image content
 	if imageContent, ok := msg.Contents[1].(ImageContent); !ok {
 		t.Errorf("Expected second content to be ImageContent")
@@ -142,30 +142,30 @@ func TestCoalesceTextContent(t *testing.T) {
 	msg.AddImageContent("image/png", []byte("data"))
 	msg.AddTextContent(" from ")
 	msg.AddTextContent("Go!")
-	
+
 	// Before coalescing
 	if len(msg.Contents) != 5 {
 		t.Errorf("Expected 5 contents before coalescing, got %d", len(msg.Contents))
 	}
-	
+
 	msg.CoalesceTextContent()
-	
+
 	// After coalescing
 	if len(msg.Contents) != 3 {
 		t.Errorf("Expected 3 contents after coalescing, got %d", len(msg.Contents))
 	}
-	
+
 	// Check coalesced content
 	if text, ok := msg.Contents[0].(TextContent); !ok {
 		t.Errorf("Expected first content to be TextContent")
 	} else if text.Text != "Hello world" {
 		t.Errorf("Expected 'Hello world', got %s", text.Text)
 	}
-	
+
 	if _, ok := msg.Contents[1].(ImageContent); !ok {
 		t.Errorf("Expected second content to be ImageContent")
 	}
-	
+
 	if text, ok := msg.Contents[2].(TextContent); !ok {
 		t.Errorf("Expected third content to be TextContent")
 	} else if text.Text != " from Go!" {
@@ -179,7 +179,7 @@ func TestClearMethods(t *testing.T) {
 		WithUserMessage("Message 1").
 		WithAssistantMessage("Response 1").
 		WithUserMessage("Message 2")
-	
+
 	// Test Clear (keeps system message)
 	parts.Clear()
 	if len(parts.Messages) != 0 {
@@ -188,10 +188,10 @@ func TestClearMethods(t *testing.T) {
 	if parts.System.GetTextContent() != "System message" {
 		t.Errorf("Expected system message to remain after Clear")
 	}
-	
+
 	// Add messages again
 	parts.WithUserMessage("New message")
-	
+
 	// Test ClearAll
 	parts.ClearAll()
 	if len(parts.Messages) != 0 {

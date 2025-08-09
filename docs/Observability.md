@@ -34,3 +34,13 @@ Events:
 - Braintrust: point OTLP endpoint/headers to Braintrust collector
 - Arize: point OTLP endpoint/headers to Arize collector (see their docs)
 
+## Logging and Redaction
+
+The example `Logger` middleware prints basic start/end messages. Pass a redaction function to scrub sensitive values:
+
+```go
+prov := middleware.Chain(base,
+  middleware.Logger(func(s string) string { return strings.Repeat("*", len(s)) }),
+)
+```
+

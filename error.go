@@ -1,6 +1,8 @@
 package gai
 
 import (
+	"errors"
+
 	"github.com/recera/gai/core"
 )
 
@@ -15,6 +17,13 @@ func NewLLMError(err error, provider, model string) *LLMError {
 		Model:    model,
 	}
 }
+
+// Sentinel errors for classification and retry policies.
+var (
+	ErrRateLimited  = errors.New("rate limited")
+	ErrUnauthorized = errors.New("unauthorized")
+	ErrTemporary    = errors.New("temporary error")
+)
 
 // WrapError wraps an error with LLM context
 func WrapError(err error, parts LLMCallParts) *LLMError {

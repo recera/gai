@@ -75,15 +75,23 @@ See also: docs/GettingStarted.md
 client, err := gai.NewClient(
   gai.WithHTTPTimeout(60*time.Second),
   gai.WithMaxRetries(3),
+  gai.WithBackoff(200*time.Millisecond, 5*time.Second, 0.2), // jittered exponential backoff
   gai.WithOpenAIKey(os.Getenv("OPENAI_API_KEY")),
+  // Defaults are UNSET unless you set them:
   gai.WithDefaultProvider("openai"),     // default for NewLLMCallParts
   gai.WithDefaultModel("gpt-4o-mini"),   // default for NewLLMCallParts
+  // Observability/infra niceties
+  gai.WithUserAgent("myapp/1.0 (+example.com)"),
+  gai.WithProviderBaseURL("openai", os.Getenv("OPENAI_BASE_URL")), // e.g., gateway
+  gai.WithOpenAIIncludeUsageInStream(true),
+  // Tools loop cap (blocking/streaming)
+  gai.WithToolLoopMaxSteps(8),
   // gai.WithEnvFile(".env"),            // load variables from a specific .env
   // gai.WithoutEnvFile(),                // disable .env loading
 )
 ```
 
-- Defaults set via the client are used by `NewLLMCallParts()` (DX-friendly defaults)
+- Defaults set via the client are applied by `NewLLMCallParts()`. If you do not set defaults, you must set `Provider` and `Model` explicitly on each call.
 
 ---
 
@@ -194,7 +202,9 @@ http.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-React example (Vercel AI SDK `useChat`) is in docs/Streaming_and_UI.md
+Notes:
+- Providers that support it may include token usage on the final end chunk. Enable for OpenAI with `WithOpenAIIncludeUsageInStream(true)`.
+- React example (Vercel AI SDK `useChat`) is in docs/Streaming_and_UI.md
 
 ---
 
@@ -290,9 +300,14 @@ if err != nil {
   if llmErr, ok := err.(*gai.LLMError); ok {
     fmt.Println("provider:", llmErr.Provider, "model:", llmErr.Model, "status:", llmErr.StatusCode)
     fmt.Println("raw:", llmErr.LastRaw)
+    fmt.Println("request_id:", llmErr.RequestID)
+    fmt.Println("ratelimit limit/remaining/reset:", llmErr.RateLimitLimit, llmErr.RateLimitRemaining, llmErr.RateLimitReset)
   }
 }
 ```
+
+Retries & backoff:
+- Configure with `WithMaxRetries` and `WithBackoff`. The client retries on 429/5xx and transport errors, honoring `Retry-After` when available.
 
 ---
 

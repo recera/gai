@@ -108,6 +108,21 @@ func (t *testClient) RunWithTools(ctx context.Context, parts LLMCallParts, execu
 	return t.GetCompletion(ctx, parts)
 }
 
+// StreamWithTools provides a simple emulation for tests: it calls GetCompletion,
+// emits content as a single stream, and returns end. It does not invoke tools.
+func (t *testClient) StreamWithTools(ctx context.Context, parts LLMCallParts, executor func(call ToolCall) (string, error), handler StreamHandler) error {
+	resp, err := t.GetCompletion(ctx, parts)
+	if err != nil {
+		return err
+	}
+	if resp.Content != "" {
+		if err := handler(StreamChunk{Type: "content", Delta: resp.Content}); err != nil {
+			return err
+		}
+	}
+	return handler(StreamChunk{Type: "end", FinishReason: resp.FinishReason})
+}
+
 // TestOpenAIProviderWithHTTPMock tests the OpenAI provider with a mock HTTP server
 func TestOpenAIProviderWithHTTPMock(t *testing.T) {
 	// Create a mock HTTP server
