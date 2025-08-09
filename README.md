@@ -1,302 +1,325 @@
-# gai - Go AI SDK
+# GAI: Go AI SDK
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/recera/gai.svg)](https://pkg.go.dev/github.com/recera/gai)
-[![Go Report Card](https://goreportcard.com/badge/github.com/recera/gai)](https://goreportcard.com/report/github.com/recera/gai)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+GAI is a production‑grade, provider‑agnostic Go SDK for building LLM‑powered applications.
 
-gai (Go AI) is a powerful, type-safe Go SDK for building AI applications with Large Language Models (LLMs). It provides a unified interface for multiple providers while offering advanced features like structured outputs, robust JSON parsing, and comprehensive error handling.
+It emphasizes three pillars:
 
-## ✨ Key Features
+- Developer Experience: fluent API, strong types, helpful defaults, clear docs
+- Functionality: multi‑provider, tool calling (blocking/streaming), structured outputs, streaming + UI adapters, middleware
+- Observability/Evals: optional OpenTelemetry spans, evaluation recorder and dataset builder
 
-- **🔌 Multi-Provider Support**: Seamless integration with OpenAI, Anthropic, Google Gemini, Groq, and Cerebras
-- **🛡️ Type-Safe Actions**: Generic `Action[T]` pattern for compile-time type safety
-- **🏗️ Fluent Builder API**: Chainable methods for elegant request construction
-- **🧩 Robust JSON Parsing**: Handles malformed LLM outputs with intelligent recovery
-- **⚡ Zero Configuration**: Works out of the box with environment variables
-- **🎯 Structured Errors**: Rich error context with provider, model, and HTTP details
-- **📝 Template Support**: Built-in prompt templating with Go's text/template
-- **🔍 Conversation Management**: Tools for history manipulation and token management
-- **📡 Streaming Support**: Unified `StreamCompletion` with SSE for OpenAI/Anthropic; one-shot emulation for others
-- **🛠️ Tool Calling**: OpenAI tool-call parsing and orchestration via `RunWithTools`
+Deep dives live in the docs folder:
 
-## 📦 Installation
+- docs/GettingStarted.md
+- docs/Providers.md
+- docs/Tools_and_StructuredOutputs.md
+- docs/Streaming_and_UI.md
+- docs/Middleware.md
+- docs/Observability.md
+- docs/Evaluation.md
+- docs/Registry.md
+- docs/Troubleshooting.md
+
+---
+
+## Install
 
 ```bash
 go get github.com/recera/gai
 ```
 
-## 🚀 Quick Start
+Supported Go: 1.21+
 
-### Basic Usage
+---
+
+## Quick Start
 
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    
-    "github.com/recera/gai"
+  "context"
+  "fmt"
+  "log"
+  "github.com/recera/gai"
 )
 
 func main() {
-    // Create client (reads API keys from environment)
-    client, err := gai.NewClient()
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    // Simple completion (fluent builder returns a pointer)
-    parts := gai.NewLLMCallParts().
-        WithProvider("openai").
-        WithModel("gpt-4o").
-        WithUserMessage("What's the capital of France?")
-    
-    // Use helper that accepts *LLMCallParts for ergonomic calls
-    response, err := gai.GetCompletionP(context.Background(), client, parts)
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    fmt.Println(response.Content)
-}
-```
+  // Optionally load .env (OPENAI_API_KEY, ANTHROPIC_API_KEY, ...)
+  gai.FindAndLoadEnv()
 
-### Type-Safe Structured Outputs
+  client, err := gai.NewClient()
+  if err != nil { log.Fatal(err) }
 
-```go
-// Define your response structure
-type CityInfo struct {
-    Name       string   `json:"name" desc:"City name"`
-    Country    string   `json:"country" desc:"Country name"`
-    Population int      `json:"population" desc:"Approximate population"`
-    Languages  []string `json:"languages" desc:"Main languages spoken"`
-}
-
-// Use Action[T] for type-safe responses
-action := gai.NewAction[CityInfo]().
+  parts := gai.NewLLMCallParts().
     WithProvider("openai").
-    WithModel("gpt-4o").
-    WithSystem("You are a helpful geography assistant.").
-    WithUserMessage("Tell me about Tokyo")
+    WithModel("gpt-4o-mini").
+    WithSystem("You are concise.").
+    WithUserMessage("Explain Goroutines briefly.")
 
-cityInfo, err := action.Run(context.Background(), client)
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Printf("City: %s, Population: %d\n", cityInfo.Name, cityInfo.Population)
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file or set environment variables:
-
-```env
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-GEMINI_API_KEY=your_gemini_key
-GROQ_API_KEY=your_groq_key
-CEREBRAS_API_KEY=your_cerebras_key
-```
-
-### Client Options
-
-```go
-// Custom configuration
-client, err := gai.NewClient(
-    gai.WithOpenAIKey("your-api-key"),        // Provide key directly
-    gai.WithHTTPTimeout(60*time.Second),      // Custom timeout
-    gai.WithoutEnvFile(),                     // Disable .env loading
-    gai.WithDefaultProvider("anthropic"),     // Set default provider
-)
-
-// Load specific .env file
-client, err := gai.NewClient(
-    gai.WithEnvFile("/path/to/.env"),
-)
-```
-
-## 🎯 Advanced Features
-
-### Conversation Management
-
-```go
-// Build a conversation
-conv := gai.NewLLMCallParts().
-    WithSystem("You are a helpful assistant.").
-    WithUserMessage("What's Python?").
-    WithAssistantMessage("Python is a programming language...").
-    WithUserMessage("What are its main uses?")
-
-// Manage conversation history
-conv.KeepLastMessages(10)                    // Keep only last 10 messages
-lastUser, index := conv.FindLastMessage("user")  // Find messages
-filtered := conv.FilterMessages(func(m gai.Message) bool {
-    return m.Role == "user"
-})
-```
-
-### Prompt Templates
-
-```go
-tmpl, err := gai.NewPromptTemplate(`
-Analyze the {{.Language}} code in {{.Filename}}:
-- Check for bugs
-- Suggest improvements
-- Rate code quality (1-10)
-`)
-
-parts := gai.NewLLMCallParts()
-err = gai.RenderSystemTemplate(parts, tmpl, map[string]interface{}{
-    "Language": "Go",
-    "Filename": "main.go",
-})
-```
-
-### Error Handling
-
-```go
-response, err := gai.GetCompletionP(ctx, client, parts)
-if err != nil {
-    // Structured error information
-    if llmErr, ok := err.(*gai.LLMError); ok {
-        fmt.Printf("Provider: %s\n", llmErr.Provider)
-        fmt.Printf("Model: %s\n", llmErr.Model)
-        fmt.Printf("Status Code: %d\n", llmErr.StatusCode)
-        fmt.Printf("Raw Response: %s\n", llmErr.LastRaw)
-    }
+  resp, err := client.GetCompletion(context.Background(), parts.Value())
+  if err != nil { log.Fatal(err) }
+  fmt.Println(resp.Content)
 }
 ```
 
-### Token Management
-### Streaming
+Environment variables: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`.
+
+See also: docs/GettingStarted.md
+
+---
+
+## Configuration & Client Options
 
 ```go
-ctx := context.Background()
+client, err := gai.NewClient(
+  gai.WithHTTPTimeout(60*time.Second),
+  gai.WithMaxRetries(3),
+  gai.WithOpenAIKey(os.Getenv("OPENAI_API_KEY")),
+  gai.WithDefaultProvider("openai"),     // default for NewLLMCallParts
+  gai.WithDefaultModel("gpt-4o-mini"),   // default for NewLLMCallParts
+  // gai.WithEnvFile(".env"),            // load variables from a specific .env
+  // gai.WithoutEnvFile(),                // disable .env loading
+)
+```
+
+- Defaults set via the client are used by `NewLLMCallParts()` (DX-friendly defaults)
+
+---
+
+## LLMCallParts (requests)
+
+`LLMCallParts` is a fluent builder holding provider/model, system/user messages, and cross‑provider settings.
+
+```go
 parts := gai.NewLLMCallParts().
-  WithProvider("openai").
-  WithModel("gpt-4o-mini").
-  WithSystem("You stream responses.").
-  WithUserMessage("Explain Rust ownership briefly.")
+  WithProvider("anthropic").
+  WithModel("claude-3-haiku-20240307").
+  WithSystem("Be helpful.").
+  WithUserMessage("Give me 3 tips to learn Go")
+```
 
-client, _ := gai.NewClient()
-_ = client.StreamCompletion(ctx, parts.Value(), func(ch gai.StreamChunk) error {
+Advanced fields you can set on the value or struct:
+
+- StopSequences `[]string`
+- TopP `*float64`, TopK `*int`, Seed `*int64`
+- Headers `map[string]string` (e.g., gateway headers)
+- ProviderOpts `map[string]any` (escape hatch for provider‑specific options)
+- ToolChoice `any` (e.g., "auto" or provider‑specific structure)
+- SessionID `string` and Metadata `map[string]any` (for tracing/evals)
+- ExpectedText `string`, ExpectedJSON `any` (for evals)
+
+See docs/GettingStarted.md
+
+---
+
+## Providers
+
+- OpenAI: native tools, strict object mode (json_schema), SSE streaming, arguments coalescer
+- Anthropic: native tools, content‑block streaming, tool_use/tool_result mapping
+- Gemini: functionDeclarations/calls/responses; request‑only strict schema hints
+- Groq/Cerebras: OpenAI‑compatible chat shapes; streaming emulated (see middleware)
+
+See docs/Providers.md for details on request/stream mappings and caveats.
+
+---
+
+## Structured Outputs (object mode)
+
+Get typed JSON deterministically when supported, fallback to a robust tolerant parser otherwise.
+
+```go
+type City struct { Name string `json:"name"`; Pop int `json:"pop"` }
+city, usage, err := gai.GenerateObject[City](ctx, client, parts.Value())
+if err != nil { /* handle */ }
+fmt.Println(city.Name, usage.TotalTokens)
+```
+
+- OpenAI: strict json_schema mode used transparently
+- Gemini: pass `parts.ProviderOpts["response_schema"]` (provider consumes request hint)
+
+See docs/Tools_and_StructuredOutputs.md
+
+---
+
+## Tool Calling
+
+### Blocking tool loop
+
+```go
+// Build tool schema from a type (or a struct value)
+tool, _ := gai.ToolFromType[struct{ TZ string `json:"tz"` }]("get_time")
+parts.WithTools(tool).WithSystem("Use tools when needed")
+
+resp, err := client.RunWithTools(ctx, parts.Value(), func(call gai.ToolCall) (string, error) {
+  if call.Name == "get_time" { return time.Now().Format(time.RFC3339), nil }
+  return "", fmt.Errorf("unknown tool")
+})
+```
+
+### Streaming tools loop
+
+```go
+_ = client.StreamWithTools(ctx, parts.Value(), executorFn, func(ch gai.StreamChunk) error {
   switch ch.Type {
-  case "content":
-    fmt.Print(ch.Delta)
-  case "end":
-    fmt.Printf("\n[done] reason=%s\n", ch.FinishReason)
+  case "content": fmt.Print(ch.Delta)
+  case "tool_call": // visualise call
+  case "end": fmt.Println("\n[done]", ch.FinishReason)
   }
   return nil
 })
 ```
 
-OpenAI and Anthropic use SSE; Gemini/Groq/Cerebras currently emit a single content chunk followed by end.
+Provider‑native wiring:
+- OpenAI: replies with `{role:"tool", tool_call_id, content}`
+- Anthropic: replies with `tool_result` content block that references `tool_use_id`
+- Gemini: replies with functionResponse (set `Message.ToolName`)
 
-### Tool Calling
+See docs/Tools_and_StructuredOutputs.md
+
+---
+
+## Streaming & UI (SSE)
+
+Use the tiny adapter to expose an SSE endpoint consumable by modern UI hooks.
 
 ```go
-tools := []gai.ToolDefinition{
-  {Name: "get_time", Description: "Get current time", JSONSchema: map[string]any{
-    "type": "object", "properties": map[string]any{}, "required": []string{},
-  }},
-}
+http.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
+  ch := make(chan gai.StreamChunk)
+  go func(){
+    defer close(ch)
+    _ = client.StreamCompletion(ctx, parts.Value(), func(s gai.StreamChunk) error { ch <- s; return nil })
+  }()
+  uistream.Write(w, ch) // sets Content-Type: text/event-stream and x-vercel-ai-ui-message-stream: v1
+})
+```
 
-parts := gai.NewLLMCallParts().
-  WithProvider("openai").WithModel("gpt-4o-mini").
-  WithSystem("Use tools when needed").
-  WithTools(tools...).
-  WithUserMessage("What time is it?")
+React example (Vercel AI SDK `useChat`) is in docs/Streaming_and_UI.md
 
-client, _ := gai.NewClient()
-resp, err := client.RunWithTools(ctx, parts.Value(), func(call gai.ToolCall) (string, error) {
-  switch call.Name {
-  case "get_time":
-    return time.Now().Format(time.RFC3339), nil
-  default:
-    return "", fmt.Errorf("unknown tool: %s", call.Name)
+---
+
+## Middleware
+
+Chain cross‑cutting behavior around providers.
+
+```go
+prov := middleware.Chain(base,
+  middleware.Logger(),
+  middleware.Defaults(func(p *gai.LLMCallParts){ if p.MaxTokens==0 { p.MaxTokens = 400 } }),
+  middleware.SimulatedStreaming(30*time.Millisecond, 80),
+)
+```
+
+Shipped:
+- Defaults: apply defaults to `LLMCallParts`
+- Logger: log start/end
+- SimulatedStreaming: emulate streaming by chunking blocking responses
+- ReasoningExtraction: extract `<think>...</think>` and strip it from visible output
+- Tracer: LLM spans and tool events via the observability API
+
+See docs/Middleware.md
+
+---
+
+## Observability (OpenTelemetry, optional)
+
+By default, no‑ops. With the `otel` build tag and an OTLP endpoint, spans are emitted for generate/stream calls and tool events.
+
+```go
+//go:build otel
+
+shutdown, _ := observability.Enable(ctx, observability.TracerConfig{
+  Endpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+  Headers:  map[string]string{"Authorization": os.Getenv("OTEL_EXPORTER_OTLP_HEADERS")},
+  SampleRatio: 1.0, TruncateLimit: 2048,
+})
+defer shutdown(ctx)
+
+prov := middleware.Chain(baseProvider, middleware.NewTracer(2048).Wrap())
+```
+
+Attributes include ai.provider, ai.model, ai.session_id, ai.settings.*, ai.first_chunk event, ai.toolCall events, ai.usage.*, ai.finish_reason.
+
+See docs/Observability.md
+
+---
+
+## Evaluation & Datasets
+
+Record interactions (NDJSON) and build datasets for external evals.
+
+```go
+rec, _ := eval.NewRecorder("eval_logs.ndjson")
+prov := rec.Wrap(baseProvider) // wrap provider
+
+_ = eval.BuildDataset("eval_logs.ndjson", "dataset.json", func(m map[string]any) *eval.Entry {
+  return &eval.Entry{
+    Provider: m["provider"].(string),
+    Model:    m["model"].(string),
+    Messages: nil, // or transform
+    Response: m["response"].(string),
+    Expected: m["expected_text"],
+    Metadata: nil,
   }
 })
-if err != nil { log.Fatal(err) }
-fmt.Println("Answer:", resp.Content)
 ```
 
-For typed outputs, use `Action[T].RunWithTools` similarly. Current loop feeds tool results back as text; provider-native tool result wiring can be extended.
+See docs/Evaluation.md
+
+---
+
+## Model Registry
+
+Resolve model keys like `provider:model` and apply them rapidly.
 
 ```go
-// Estimate tokens
-tokenizer := gai.NewSimpleTokenizer()
-tokens := parts.EstimateTokens(tokenizer)
-
-// Prune to fit context window
-removed, err := parts.PruneToTokens(4000, tokenizer)
-
-// Keep recent messages while pruning
-removed, err := parts.PruneKeepingRecent(5, 4000, tokenizer)
+parts, _ := gai.NewLLMCallPartsFor(client, "openai:gpt-4o-mini")
 ```
 
-## 📚 Providers
+See docs/Registry.md
 
-### Supported Models
+---
 
-| Provider | Example Models | Configuration |
-|----------|---------------|---------------|
-| OpenAI | gpt-4o, gpt-4o-mini, gpt-3.5-turbo | `WithProvider("openai")` |
-| Anthropic | claude-3-sonnet, claude-3-haiku | `WithProvider("anthropic")` |
-| Google | gemini-2.0-flash-exp, gemini-pro | `WithProvider("gemini")` |
-| Groq | llama-3.3-70b, mixtral-8x7b | `WithProvider("groq")` |
-| Cerebras | llama-3.3-70b | `WithProvider("cerebras")` |
+## Error Handling
 
-## 🏗️ Architecture
+Errors from providers come as `*gai.LLMError`:
 
-### Core Components
-
-- **LLMClient**: Main interface for all LLM operations
-- **LLMCallParts**: Request configuration with fluent builder methods
-- **Action[T]**: Generic wrapper for type-safe structured outputs
-- **Response Parser**: Three-stage pipeline for robust JSON parsing
-
-### Package Structure
-
-```
-github.com/recera/gai/
-├── core_types.go          # Core types (Message, LLMResponse, etc.)
-├── llm_client.go          # Client implementation
-├── action.go              # Generic Action[T] pattern
-├── providers/             # Provider implementations
-│   ├── openai.go
-│   ├── anthropic.go
-│   └── ...
-└── responseParser/        # Robust JSON parsing
-    ├── cleanup/           # Markdown/text preprocessing
-    ├── parser/            # JSON parsing with error recovery
-    └── coercer/          # Type coercion and mapping
+```go
+resp, err := client.GetCompletion(ctx, parts.Value())
+if err != nil {
+  if llmErr, ok := err.(*gai.LLMError); ok {
+    fmt.Println("provider:", llmErr.Provider, "model:", llmErr.Model, "status:", llmErr.StatusCode)
+    fmt.Println("raw:", llmErr.LastRaw)
+  }
+}
 ```
 
-## 🤝 Contributing
+---
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## Examples
 
-## 📄 License
+All `_examples/` are tagged with `//go:build examples` to avoid multiple mains.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Run:
 
-## 🙏 Acknowledgments
+```bash
+go run -tags examples _examples/06_streaming.go
+```
 
-- Response parsing strategies inspired by [BAML](https://github.com/baml-ai/llmjson)
-- Built with love for the Go community
+---
 
-## 📖 More Examples
+## Troubleshooting
 
-Check out the examples for more detailed usage:
+See docs/Troubleshooting.md for the most common issues and fixes.
 
-- [Basic completions](_examples/01_simple_completion.go)
-- [Structured outputs](_examples/02_structured_output.go)
-- [Conversation management](_examples/03_conversation.go)
-- [Multiple providers](_examples/04_multiple_providers.go)
-- [Template usage](_examples/05_templates.go)
-- A comprehensive demo: [`examples/dx_features_demo.go`](examples/dx_features_demo.go)
+---
+
+## Contributing
+
+PRs welcome. Please open an issue for larger features.
+
+---
+
+## License
+
+MIT — see LICENSE

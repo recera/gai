@@ -1,3 +1,5 @@
+//go:build examples
+
 package main
 
 import (
@@ -28,20 +30,35 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	instructions, err := gai.ResponseInstructions(BookRecommendation{})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create a type-safe action
 	action := gai.NewAction[BookRecommendation]().
 		WithProvider("openai").
 		WithModel("gpt-4o-mini").
 		WithSystem("You are a knowledgeable book recommendation assistant.").
-		WithUserMessage("Recommend a science fiction book about AI")
+		WithUserMessage("Recommend a science fiction book about AI" + instructions)
 
-	// Execute and get typed response
+		// Execute and get typed response (tolerant parser fallback)
 	ctx := context.Background()
 	book, err := action.Run(ctx, client)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Strict object mode (when supported by provider)
+	parts := gai.NewLLMCallParts().
+		WithProvider("openai").
+		WithModel("gpt-4o-mini").
+		WithUserMessage("Recommend a science fiction book about AI as JSON")
+	strict, usage, err := gai.GenerateObject[BookRecommendation](ctx, client, *parts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = usage // use as needed
+	fmt.Printf("\nStrict Mode Title: %s\n", strict.Title)
 
 	// Use the structured response
 	fmt.Printf("📚 Book Recommendation:\n")

@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/recera/gai/core"
+	"github.com/recera/gai/observability"
 )
 
 type openAIClient struct {
@@ -54,10 +56,14 @@ func (c *openAIClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 	// Include system message if present by prepending to messages
 	transformed := c.transformMessagesWithSystem(parts.Messages, parts.System)
 	reqBody := openAIRequest{
-		Model:       parts.Model,
-		Messages:    transformed,
-		MaxTokens:   parts.MaxTokens,
-		Temperature: parts.Temperature,
+		Model:          parts.Model,
+		Messages:       transformed,
+		MaxTokens:      parts.MaxTokens,
+		Temperature:    parts.Temperature,
+		Stop:           parts.StopSequences,
+		TopP:           parts.TopP,
+		Seed:           parts.Seed,
+		ResponseFormat: parts.ProviderOpts["response_format"],
 	}
 
 	// Add tools if provided
@@ -76,6 +82,9 @@ func (c *openAIClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 		reqBody.Tools = tools
 		// Let model decide tools automatically; caller can override in future API if needed
 	}
+	if parts.ToolChoice != nil {
+		reqBody.ToolChoice = parts.ToolChoice
+	}
 
 	reqBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -89,6 +98,13 @@ func (c *openAIClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	// Merge custom headers if provided
+	for k, v := range parts.Headers {
+		if k == "Authorization" || k == "Content-Type" {
+			continue
+		}
+		req.Header.Set(k, v)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -155,10 +171,11 @@ func (c *openAIClient) transformMessages(messages []core.Message) []openAIMessag
 				contentStr += textContent.Text
 			}
 		}
-		openAIMessages = append(openAIMessages, openAIMessage{
-			Role:    msg.Role,
-			Content: contentStr,
-		})
+		m := openAIMessage{Role: msg.Role, Content: contentStr}
+		if msg.Role == "tool" && msg.ToolCallID != "" {
+			m.ToolCallID = msg.ToolCallID
+		}
+		openAIMessages = append(openAIMessages, m)
 	}
 	return openAIMessages
 }
@@ -184,6 +201,7 @@ func (c *openAIClient) StreamCompletion(ctx context.Context, parts core.LLMCallP
 	if c.apiKey == "" {
 		return core.NewLLMError(fmt.Errorf("API key is not set"), "openai", parts.Model)
 	}
+	ctx, span, metrics := observability.StartStream(ctx, "openai", parts.Model)
 	transformed := c.transformMessagesWithSystem(parts.Messages, parts.System)
 	reqBody := map[string]interface{}{
 		"model":       parts.Model,
@@ -192,12 +210,27 @@ func (c *openAIClient) StreamCompletion(ctx context.Context, parts core.LLMCallP
 		"temperature": parts.Temperature,
 		"stream":      true,
 	}
+	if len(parts.StopSequences) > 0 {
+		reqBody["stop"] = parts.StopSequences
+	}
+	if parts.TopP != nil {
+		reqBody["top_p"] = *parts.TopP
+	}
+	if parts.Seed != nil {
+		reqBody["seed"] = *parts.Seed
+	}
+	if rf, ok := parts.ProviderOpts["response_format"]; ok {
+		reqBody["response_format"] = rf
+	}
 	if len(parts.Tools) > 0 {
 		tools := make([]openAITool, 0, len(parts.Tools))
 		for _, t := range parts.Tools {
 			tools = append(tools, openAITool{Type: "function", Function: openAIFunction{Name: t.Name, Description: t.Description, Parameters: t.JSONSchema}})
 		}
 		reqBody["tools"] = tools
+	}
+	if parts.ToolChoice != nil {
+		reqBody["tool_choice"] = parts.ToolChoice
 	}
 
 	reqBytes, _ := json.Marshal(reqBody)
@@ -221,9 +254,19 @@ func (c *openAIClient) StreamCompletion(ctx context.Context, parts core.LLMCallP
 	// The OpenAI stream uses SSE where each line begins with 'data:'. We'll do a simple scan.
 	// For simplicity here we decode JSON tokens directly if present, else treat as plain lines.
 	// Minimal implementation: accumulate deltas only.
+	type streamToolCallDelta struct {
+		Index    int    `json:"index"`
+		ID       string `json:"id"`
+		Type     string `json:"type"`
+		Function struct {
+			Name      string `json:"name"`
+			Arguments string `json:"arguments"`
+		} `json:"function"`
+	}
 	type streamChoiceDelta struct {
 		Delta struct {
-			Content string `json:"content"`
+			Content   string                `json:"content"`
+			ToolCalls []streamToolCallDelta `json:"tool_calls"`
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason"`
 		Index        int    `json:"index"`
@@ -234,6 +277,13 @@ func (c *openAIClient) StreamCompletion(ctx context.Context, parts core.LLMCallP
 	// Fallback line-by-line reader to handle SSE "data: {json}"
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 1024)
+	// Accumulate tool call parts across deltas by index
+	type tcAcc struct {
+		id   string
+		name string
+		args strings.Builder
+	}
+	acc := map[int]*tcAcc{}
 	for {
 		n, err := resp.Body.Read(tmp)
 		if n > 0 {
@@ -252,20 +302,61 @@ func (c *openAIClient) StreamCompletion(ctx context.Context, parts core.LLMCallP
 				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 				if payload == "[DONE]" {
 					_ = handler(core.StreamChunk{Type: "end"})
+					observability.CloseStream(span, metrics, "")
 					return nil
 				}
 				var ev streamEvent
 				if err := json.Unmarshal([]byte(payload), &ev); err == nil {
 					for _, ch := range ev.Choices {
+						// Accumulate tool_calls across deltas by index
+						if len(ch.Delta.ToolCalls) > 0 {
+							for _, tcd := range ch.Delta.ToolCalls {
+								a := acc[tcd.Index]
+								if a == nil {
+									a = &tcAcc{}
+									acc[tcd.Index] = a
+								}
+								if tcd.ID != "" {
+									a.id = tcd.ID
+								}
+								if tcd.Function.Name != "" {
+									a.name = tcd.Function.Name
+								}
+								if tcd.Function.Arguments != "" {
+									a.args.WriteString(tcd.Function.Arguments)
+								}
+							}
+						}
 						if ch.Delta.Content != "" {
+							observability.MarkFirstToken(metrics)
 							if err := handler(core.StreamChunk{Type: "content", Delta: ch.Delta.Content}); err != nil {
 								return err
 							}
 						}
 						if ch.FinishReason != "" {
+							// If finish reason indicates tool calls, emit coalesced calls now
+							if ch.FinishReason == "tool_calls" && len(acc) > 0 {
+								// Emit in ascending index order
+								indices := make([]int, 0, len(acc))
+								for i := range acc {
+									indices = append(indices, i)
+								}
+								sort.Ints(indices)
+								for _, i := range indices {
+									a := acc[i]
+									call := core.ToolCall{ID: a.id, Name: a.name, Arguments: a.args.String()}
+									observability.MarkFirstToken(metrics)
+									if err := handler(core.StreamChunk{Type: "tool_call", Call: &call}); err != nil {
+										return err
+									}
+								}
+								// Reset accumulator
+								acc = map[int]*tcAcc{}
+							}
 							if err := handler(core.StreamChunk{Type: "end", FinishReason: ch.FinishReason}); err != nil {
 								return err
 							}
+							observability.CloseStream(span, metrics, ch.FinishReason)
 						}
 					}
 				}
@@ -273,6 +364,7 @@ func (c *openAIClient) StreamCompletion(ctx context.Context, parts core.LLMCallP
 		}
 		if err != nil {
 			if err == io.EOF {
+				observability.CloseStream(span, metrics, "")
 				break
 			}
 			return err

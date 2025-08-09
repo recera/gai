@@ -134,8 +134,10 @@ func generateFieldsOutput(b *strings.Builder, typ reflect.Type, indentLevel int)
 	}
 }
 
-// CreateResponseFormatInstructions generates a string describing the JSON format
-// for an LLM based on the provided Go struct.
+// ResponseInstructions generates guidance describing the JSON format expected
+// based on the provided Go struct. This helper is a provider-agnostic fallback
+// when strict JSON modes are unavailable. Prefer provider strict schema modes
+// where supported (e.g., OpenAI json_schema, Gemini response schema) for higher determinism.
 func ResponseInstructions(s interface{}) (string, error) {
 	val := reflect.ValueOf(s)
 	if val.Kind() == reflect.Ptr {

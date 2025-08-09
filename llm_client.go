@@ -9,7 +9,10 @@ import (
 	"github.com/recera/gai/core"
 	p "github.com/recera/gai/responseParser"
 
+	"strings"
+
 	"github.com/joho/godotenv"
+	"github.com/recera/gai/registry"
 )
 
 // Type aliases for interfaces
@@ -24,6 +27,7 @@ type client struct {
 	groq      ProviderClient
 	cerebras  ProviderClient
 	cfg       clientOptions
+	reg       *registry.Registry
 }
 
 // NewClient creates and initializes a new LLM client.
@@ -71,6 +75,7 @@ func NewClient(opts ...ClientOption) (LLMClient, error) {
 		cerebrasKey = os.Getenv("CEREBRAS_API_KEY")
 	}
 
+	reg := registry.New()
 	cl := &client{
 		openAI:    newOpenAIClient(openAIKey),
 		anthropic: newAnthropicClient(anthropicKey),
@@ -78,12 +83,34 @@ func NewClient(opts ...ClientOption) (LLMClient, error) {
 		groq:      newGroqClient(groqKey),
 		cerebras:  newCerebrasClient(cerebrasKey),
 		cfg:       cfg,
+		reg:       reg,
 	}
+	// Register providers for model key resolution
+	reg.Register("openai", cl.openAI)
+	reg.Register("anthropic", cl.anthropic)
+	reg.Register("gemini", cl.gemini)
+	reg.Register("groq", cl.groq)
+	reg.Register("cerebras", cl.cerebras)
 
 	// Set global defaults for subsequent NewLLMCallParts()
 	setGlobalDefaults(cfg.DefaultProvider, cfg.DefaultModel)
 
 	return cl, nil
+}
+
+// ApplyModelKey parses "provider:model" and sets parts.Provider and parts.Model accordingly using the internal registry.
+func (c *client) ApplyModelKey(parts *LLMCallParts, key string) error {
+	if parts == nil {
+		return fmt.Errorf("nil parts")
+	}
+	_, model, err := c.reg.Resolve(key)
+	if err != nil {
+		return err
+	}
+	pv := strings.SplitN(key, ":", 2)[0]
+	parts.Provider = pv
+	parts.Model = model
+	return nil
 }
 
 // GetCompletion routes the request to the appropriate provider based on the LLMCallParts.
@@ -165,6 +192,55 @@ func (c *client) StreamCompletion(ctx context.Context, parts LLMCallParts, handl
 	}
 }
 
+// StreamWithTools orchestrates a streaming call that can pause for tool calls,
+// execute them, append tool results, and resume generation until finish.
+func (c *client) StreamWithTools(ctx context.Context, parts LLMCallParts, executor func(call core.ToolCall) (string, error), handler core.StreamHandler) error {
+	if len(parts.Tools) == 0 {
+		return fmt.Errorf("no tools configured on LLMCallParts")
+	}
+
+	// Internal buffer to capture emitted tool_call parts and then inject tool results
+	toolCallHappened := false
+	// Wrap user handler to detect tool_call and forward other parts
+	wrapped := func(ch core.StreamChunk) error {
+		switch ch.Type {
+		case "tool_call":
+			toolCallHappened = true
+			if ch.Call != nil {
+				out, err := executor(*ch.Call)
+				// Append tool result message before resuming
+				m := core.Message{Role: "tool"}
+				m.AddTextContent(out)
+				m.ToolCallID = ch.Call.ID
+				if parts.Provider == "gemini" {
+					m.ToolName = ch.Call.Name
+				}
+				parts.AddMessage(m)
+				// After injecting result, we will resume by recursively streaming again.
+				if err != nil {
+					// Still continue to let model recover
+				}
+			}
+			return nil
+		default:
+			return handler(ch)
+		}
+	}
+
+	// Drive streaming; if a tool_call happens, we recursively resume until finish
+	for step := 0; step < 8; step++ {
+		toolCallHappened = false
+		if err := c.StreamCompletion(ctx, parts, wrapped); err != nil {
+			return err
+		}
+		if !toolCallHappened {
+			return nil
+		}
+		// toolCall handled and tool result appended; loop to continue generation
+	}
+	return fmt.Errorf("tool streaming loop exceeded max steps")
+}
+
 // RunWithTools performs a tool-calling loop using provider-native tool calls when available.
 func (c *client) RunWithTools(ctx context.Context, parts LLMCallParts, executor func(call core.ToolCall) (string, error)) (core.LLMResponse, error) {
 	// Ensure tools are present
@@ -184,18 +260,25 @@ func (c *client) RunWithTools(ctx context.Context, parts LLMCallParts, executor 
 			return resp, nil
 		}
 
-		// Execute each tool call and append a tool response message in a provider-agnostic way
+		// Execute each tool call and append a provider-native tool response message
 		for _, call := range resp.ToolCalls {
 			out, err := executor(call)
 			if err != nil {
-				// Append failure result to the conversation to let model recover
+				// On failure, still append a tool message with error text
 				toolMsg := core.Message{Role: "tool"}
-				toolMsg.AddTextContent(fmt.Sprintf("TOOL_RESPONSE_ERROR:%s:%v", call.Name, err))
+				toolMsg.ToolCallID = call.ID
+				toolMsg.AddTextContent(fmt.Sprintf("error: %v", err))
 				parts.AddMessage(toolMsg)
 				continue
 			}
+			// Map to provider-native reply shape by using Role: "tool" and setting ToolCallID where supported
 			toolMsg := core.Message{Role: "tool"}
-			toolMsg.AddTextContent(fmt.Sprintf("TOOL_RESPONSE:%s:%s", call.Name, out))
+			toolMsg.ToolCallID = call.ID
+			// For providers like Gemini, set ToolName for functionResponse mapping
+			if parts.Provider == "gemini" {
+				toolMsg.ToolName = call.Name
+			}
+			toolMsg.AddTextContent(out)
 			parts.AddMessage(toolMsg)
 		}
 	}

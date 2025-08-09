@@ -21,12 +21,45 @@ type LLMCallParts struct {
 
 	// Tools defines provider-native tool/function definitions available to the model
 	Tools []ToolDefinition
+
+	// Unified, provider-agnostic settings (applied when supported; otherwise warned/ignored)
+	StopSequences []string
+	TopP          *float64
+	TopK          *int
+	Seed          *int64
+
+	// Optional request headers (e.g., for gateways)
+	Headers map[string]string
+
+	// ProviderOpts is an escape hatch for provider-specific options
+	ProviderOpts map[string]any
+
+	// ToolChoice controls provider tool selection behavior (e.g., "auto", "none", or provider-specific struct)
+	ToolChoice any
+
+	// SessionID ties multi-turn conversations for observability/evaluation
+	SessionID string
+
+	// Metadata holds arbitrary context for tracing/evaluations
+	Metadata map[string]any
+
+	// Optional expected output used by evaluation tooling
+	ExpectedText string
+	ExpectedJSON any
 }
 
 // Message represents a message in a conversation with an LLM
 type Message struct {
 	Role     string
 	Contents []Content
+
+	// ToolCallID, when set and Role=="tool", is used by providers (e.g., OpenAI) to associate
+	// a tool result message with a prior tool call id.
+	ToolCallID string
+
+	// ToolName, when set and Role=="tool", identifies the tool name for providers that associate
+	// tool results by name (e.g., Gemini functionResponse).
+	ToolName string
 }
 
 // Content is an interface for different types of content in a message
@@ -140,6 +173,9 @@ type LLMClient interface {
 	// It will repeatedly call the provider, execute tool calls via executor, append tool results,
 	// and stop when the model returns a non-tool response.
 	RunWithTools(ctx context.Context, parts LLMCallParts, executor func(call ToolCall) (string, error)) (LLMResponse, error)
+
+	// StreamWithTools streams and handles tool calls mid-stream, injecting tool results and resuming
+	StreamWithTools(ctx context.Context, parts LLMCallParts, executor func(call ToolCall) (string, error), handler StreamHandler) error
 }
 
 // LLMError represents a structured error from an LLM operation

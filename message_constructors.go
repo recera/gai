@@ -23,23 +23,12 @@ func NewSystemMessage(text string) Message {
 	return m
 }
 
-// NewToolRequestMessage creates a message representing a tool call request from the assistant
-// Note: This is a placeholder implementation. The exact format will be updated when
-// implementing proper tool-use support for each provider.
-func NewToolRequestMessage(name, args string) Message {
-	m := Message{Role: "assistant", Contents: []Content{}}
-	toolCallContent := TextContent{Text: "TOOL_CALL:" + name + ":" + args}
-	m.AddContent(toolCallContent)
-	return m
-}
-
-// NewToolResponseMessage creates a message representing the response from a tool execution
-// Note: This is a placeholder implementation. The exact format will be updated when
-// implementing proper tool-use support for each provider.
-func NewToolResponseMessage(name, output string) Message {
+// NewToolResponseMessage creates a tool response message suitable for providers
+// that accept role:"tool" messages. Set ToolCallID on the returned message when
+// replying to specific tool calls (e.g., OpenAI tool_call_id).
+func NewToolResponseMessage(output string) Message {
 	m := Message{Role: "tool", Contents: []Content{}}
-	toolResponseContent := TextContent{Text: "TOOL_RESPONSE:" + name + ":" + output}
-	m.AddContent(toolResponseContent)
+	m.AddContent(TextContent{Text: output})
 	return m
 }
 

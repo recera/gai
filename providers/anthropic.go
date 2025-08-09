@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/recera/gai/core"
+	"github.com/recera/gai/observability"
 )
 
 type anthropicClient struct {
@@ -36,8 +37,11 @@ type anthropicResponse struct {
 }
 
 type anthropicContent struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type  string                 `json:"type"`
+	Text  string                 `json:"text,omitempty"`
+	ID    string                 `json:"id,omitempty"`
+	Name  string                 `json:"name,omitempty"`
+	Input map[string]interface{} `json:"input,omitempty"`
 }
 
 type anthropicUsage struct {
@@ -62,6 +66,22 @@ func (c *anthropicClient) GetCompletion(ctx context.Context, parts core.LLMCallP
 		if textContent, ok := parts.System.Contents[0].(core.TextContent); ok {
 			reqBody.System = textContent.Text
 		}
+	}
+
+	// Map tools if provided (Anthropic: tools at top-level with input_schema)
+	if len(parts.Tools) > 0 {
+		tools := make([]anthropicTool, 0, len(parts.Tools))
+		for _, t := range parts.Tools {
+			tools = append(tools, anthropicTool{
+				Name:        t.Name,
+				Description: t.Description,
+				InputSchema: t.JSONSchema,
+			})
+		}
+		reqBody.Tools = tools
+	}
+	if parts.ToolChoice != nil {
+		reqBody.ToolChoice = parts.ToolChoice
 	}
 
 	reqBytes, err := json.Marshal(reqBody)
@@ -102,11 +122,17 @@ func (c *anthropicClient) GetCompletion(ctx context.Context, parts core.LLMCallP
 		return emptyResponse, core.NewLLMError(fmt.Errorf("error unmarshalling response: %w", err), "anthropic", parts.Model)
 	}
 
-	// Extract content from anthropic's response
+	// Detect tool_use blocks; if present, emit ToolCalls for blocking flows
+	var toolCalls []core.ToolCall
 	content := ""
 	for _, contentItem := range apiResponse.Content {
-		if contentItem.Type == "text" {
+		switch contentItem.Type {
+		case "text":
 			content += contentItem.Text
+		case "tool_use":
+			// For blocking call, surface as ToolCalls to allow client to handle tool loop
+			b, _ := json.Marshal(contentItem.Input)
+			toolCalls = append(toolCalls, core.ToolCall{ID: contentItem.ID, Name: contentItem.Name, Arguments: string(b)})
 		}
 	}
 
@@ -119,26 +145,34 @@ func (c *anthropicClient) GetCompletion(ctx context.Context, parts core.LLMCallP
 			CompletionTokens: apiResponse.Usage.OutputTokens,
 			TotalTokens:      apiResponse.Usage.InputTokens + apiResponse.Usage.OutputTokens,
 		},
+		ToolCalls: toolCalls,
 	}
 
 	return unifiedResponse, nil
 }
 
 func (c *anthropicClient) transformMessages(messages []core.Message) []anthropicMessage {
-	var anthropicMessages []anthropicMessage
+	var out []anthropicMessage
 	for _, msg := range messages {
-		var contentStr string
+		// For provider-native tool result, convert Role:"tool" into an Anthropic tool_result block
+		if msg.Role == "tool" && msg.ToolCallID != "" {
+			block := map[string]interface{}{
+				"type":        "tool_result",
+				"tool_use_id": msg.ToolCallID,
+				"content":     msg.GetTextContent(),
+			}
+			out = append(out, anthropicMessage{Role: "user", Content: []interface{}{block}})
+			continue
+		}
+		var blocks []interface{}
 		for _, content := range msg.Contents {
 			if textContent, ok := content.(core.TextContent); ok {
-				contentStr += textContent.Text
+				blocks = append(blocks, anthropicTextContent{Type: "text", Text: textContent.Text})
 			}
 		}
-		anthropicMessages = append(anthropicMessages, anthropicMessage{
-			Role:    msg.Role,
-			Content: contentStr,
-		})
+		out = append(out, anthropicMessage{Role: msg.Role, Content: blocks})
 	}
-	return anthropicMessages
+	return out
 }
 
 // StreamCompletion implements a minimal line-based streaming for Anthropic messages streaming API
@@ -146,6 +180,7 @@ func (c *anthropicClient) StreamCompletion(ctx context.Context, parts core.LLMCa
 	if c.apiKey == "" {
 		return core.NewLLMError(fmt.Errorf("API key is not set"), "anthropic", parts.Model)
 	}
+	ctx, span, metrics := observability.StartStream(ctx, "anthropic", parts.Model)
 	// Anthropic streaming uses the messages API with header "anthropic-version", and stream=true via SSE.
 	// We'll request text deltas by setting stream=true&stream_tokens=true equivalent JSON body.
 	body := map[string]interface{}{
@@ -154,6 +189,16 @@ func (c *anthropicClient) StreamCompletion(ctx context.Context, parts core.LLMCa
 		"temperature": parts.Temperature,
 		"messages":    c.transformMessages(parts.Messages),
 		"stream":      true,
+	}
+	if len(parts.Tools) > 0 {
+		tools := make([]anthropicTool, 0, len(parts.Tools))
+		for _, t := range parts.Tools {
+			tools = append(tools, anthropicTool{Name: t.Name, Description: t.Description, InputSchema: t.JSONSchema})
+		}
+		body["tools"] = tools
+	}
+	if parts.ToolChoice != nil {
+		body["tool_choice"] = parts.ToolChoice
 	}
 	if len(parts.System.Contents) > 0 {
 		if textContent, ok := parts.System.Contents[0].(core.TextContent); ok {
@@ -200,17 +245,33 @@ func (c *anthropicClient) StreamCompletion(ctx context.Context, parts core.LLMCa
 				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 				if payload == "[DONE]" {
 					_ = handler(core.StreamChunk{Type: "end"})
+					observability.CloseStream(span, metrics, "")
 					return nil
 				}
-				// Anthropic events include content_block_delta with {"delta":{"type":"text_delta","text":"..."}}
+				// Parse Anthropic events for text deltas and tool_use
 				var generic map[string]interface{}
 				if err := json.Unmarshal([]byte(payload), &generic); err == nil {
 					if generic["type"] == "content_block_delta" {
 						if delta, ok := generic["delta"].(map[string]interface{}); ok {
 							if t, ok := delta["text"].(string); ok && t != "" {
+								observability.MarkFirstToken(metrics)
 								if err := handler(core.StreamChunk{Type: "content", Delta: t}); err != nil {
 									return err
 								}
+							}
+						}
+					}
+					if generic["type"] == "tool_use" {
+						// tool_use: {type:"tool_use", id:"...", name:"...", input:{...}}
+						id, _ := generic["id"].(string)
+						name, _ := generic["name"].(string)
+						// input may be object; keep raw json for arguments
+						if input, ok := generic["input"]; ok && id != "" && name != "" {
+							b, _ := json.Marshal(input)
+							call := core.ToolCall{ID: id, Name: name, Arguments: string(b)}
+							observability.MarkFirstToken(metrics)
+							if err := handler(core.StreamChunk{Type: "tool_call", Call: &call}); err != nil {
+								return err
 							}
 						}
 					}
@@ -218,12 +279,14 @@ func (c *anthropicClient) StreamCompletion(ctx context.Context, parts core.LLMCa
 						if err := handler(core.StreamChunk{Type: "end", FinishReason: fr}); err != nil {
 							return err
 						}
+						observability.CloseStream(span, metrics, fr)
 					}
 				}
 			}
 		}
 		if err != nil {
 			if err == io.EOF {
+				observability.CloseStream(span, metrics, "")
 				break
 			}
 			return err

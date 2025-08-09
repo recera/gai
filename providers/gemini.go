@@ -75,6 +75,19 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 			MaxOutputTokens: parts.MaxTokens,
 		},
 	}
+	// Tools: map ToolDefinitions to functionDeclarations
+	if len(parts.Tools) > 0 {
+		decls := make([]geminiFunctionDeclaration, 0, len(parts.Tools))
+		for _, t := range parts.Tools {
+			decls = append(decls, geminiFunctionDeclaration{Name: t.Name, Description: t.Description, Parameters: t.JSONSchema})
+		}
+		reqBody.Tools = []geminiTool{{FunctionDeclarations: decls}}
+	}
+	// Strict object mode: use response_mime_type + response_schema when provided via ProviderOpts
+	if schema, ok := parts.ProviderOpts["response_schema"].(map[string]any); ok {
+		reqBody.ResponseMimeType = "application/json"
+		reqBody.ResponseSchema = schema
+	}
 
 	reqBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -87,6 +100,12 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range parts.Headers {
+		if k == "Content-Type" {
+			continue
+		}
+		req.Header.Set(k, v)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -119,8 +138,17 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 
 	// Extract content from gemini's response
 	content := ""
+	// Surface function calls as ToolCalls
+	var toolCalls []core.ToolCall
 	for _, part := range apiResponse.Candidates[0].Content.Parts {
-		content += part.Text
+		if part.Text != "" {
+			content += part.Text
+		}
+		if part.FunctionCall != nil {
+			// Map to tool call
+			argsBytes, _ := json.Marshal(part.FunctionCall.Args)
+			toolCalls = append(toolCalls, core.ToolCall{ID: "", Name: part.FunctionCall.Name, Arguments: string(argsBytes)})
+		}
 	}
 
 	// Map to the unified LLMResponse
@@ -132,24 +160,30 @@ func (c *geminiClient) GetCompletion(ctx context.Context, parts core.LLMCallPart
 			CompletionTokens: apiResponse.UsageMetadata.CandidatesTokenCount,
 			TotalTokens:      apiResponse.UsageMetadata.TotalTokenCount,
 		},
+		ToolCalls: toolCalls,
 	}
 
 	return unifiedResponse, nil
 }
 
+// Strict object mode support for Gemini is activated via ProviderOpts in LLMCallParts.
+// If parts.ProviderOpts["response_schema"] is present, the provider will honor it when supported.
+
 func (c *geminiClient) transformMessages(messages []core.Message) []geminiContent {
 	var geminiContents []geminiContent
 	for _, msg := range messages {
 		var parts []geminiPart
-		for _, content := range msg.Contents {
-			if textContent, ok := content.(core.TextContent); ok {
-				parts = append(parts, geminiPart{Text: textContent.Text})
+		// Provider-native tool response: convert role:"tool" to functionResponse
+		if msg.Role == "tool" && msg.ToolName != "" {
+			parts = append(parts, geminiPart{FunctionResp: &geminiFunctionReply{Name: msg.ToolName, Response: map[string]interface{}{"content": msg.GetTextContent()}}})
+		} else {
+			for _, content := range msg.Contents {
+				if textContent, ok := content.(core.TextContent); ok {
+					parts = append(parts, geminiPart{Text: textContent.Text})
+				}
 			}
 		}
-		geminiContents = append(geminiContents, geminiContent{
-			Role:  c.formatRole(msg.Role),
-			Parts: parts,
-		})
+		geminiContents = append(geminiContents, geminiContent{Role: c.formatRole(msg.Role), Parts: parts})
 	}
 	return geminiContents
 }
