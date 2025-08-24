@@ -128,7 +128,7 @@ Get started with GAI in seconds:
 
 ```bash
 # Install GAI
-go get github.com/yourusername/gai
+go get github.com/recera/gai
 
 # Set up your API keys
 export OPENAI_API_KEY="your-key-here"
@@ -144,8 +144,8 @@ import (
     "fmt"
     "log"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
 )
 
 func main() {
@@ -286,7 +286,7 @@ We welcome contributions! See our [Contributing Guide](../CONTRIBUTING.md) for d
 ### Development Setup
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/gai.git
+git clone https://github.com/recera/gai.git
 cd gai
 
 # Install dependencies
@@ -314,7 +314,7 @@ GAI stands on the shoulders of giants:
 
 - [Documentation](https://gai.dev/docs)
 - [Discord Community](https://discord.gg/gai)
-- [Issue Tracker](https://github.com/yourusername/gai/issues)
+- [Issue Tracker](https://github.com/recera/gai/issues)
 - [Email Support](mailto:support@gai.dev)
 
 ## What's Next?

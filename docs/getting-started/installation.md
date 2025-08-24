@@ -60,16 +60,16 @@ mkdir my-ai-app
 cd my-ai-app
 
 # Initialize Go module
-go mod init github.com/yourusername/my-ai-app
+go mod init github.com/recera/my-ai-app
 
 # Install GAI
-go get github.com/yourusername/gai@latest
+go get github.com/recera/gai@latest
 
 # Install specific provider packages as needed
-go get github.com/yourusername/gai/providers/openai@latest
-go get github.com/yourusername/gai/providers/anthropic@latest
-go get github.com/yourusername/gai/providers/gemini@latest
-go get github.com/yourusername/gai/providers/ollama@latest
+go get github.com/recera/gai/providers/openai@latest
+go get github.com/recera/gai/providers/anthropic@latest
+go get github.com/recera/gai/providers/gemini@latest
+go get github.com/recera/gai/providers/ollama@latest
 ```
 
 #### Existing Project Setup
@@ -79,7 +79,7 @@ go get github.com/yourusername/gai/providers/ollama@latest
 cd your-project
 
 # Add GAI to your project
-go get github.com/yourusername/gai@latest
+go get github.com/recera/gai@latest
 
 # Update your go.mod
 go mod tidy
@@ -91,16 +91,16 @@ To install a specific version of GAI:
 
 ```bash
 # Install a specific version
-go get github.com/yourusername/gai@v1.0.0
+go get github.com/recera/gai@v1.0.0
 
 # Install a pre-release version
-go get github.com/yourusername/gai@v1.1.0-beta.1
+go get github.com/recera/gai@v1.1.0-beta.1
 
 # Install from a specific commit
-go get github.com/yourusername/gai@commithash
+go get github.com/recera/gai@commithash
 
 # Install from a branch
-go get github.com/yourusername/gai@feature-branch
+go get github.com/recera/gai@feature-branch
 ```
 
 ### Method 3: Local Development Setup
@@ -109,7 +109,7 @@ For contributing to GAI or local development:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/gai.git
+git clone https://github.com/recera/gai.git
 cd gai
 
 # Install dependencies
@@ -123,7 +123,7 @@ go test ./...
 
 # In your project, use replace directive
 cd ../your-project
-go mod edit -replace github.com/yourusername/gai=../gai
+go mod edit -replace github.com/recera/gai=../gai
 ```
 
 ### Method 4: Using GAI CLI (Optional)
@@ -132,7 +132,7 @@ GAI provides an optional CLI for project scaffolding:
 
 ```bash
 # Install the GAI CLI
-go install github.com/yourusername/gai/cmd/gai@latest
+go install github.com/recera/gai/cmd/gai@latest
 
 # Create a new project with GAI
 gai new my-ai-project
@@ -204,7 +204,7 @@ import (
     "os"
     
     "github.com/joho/godotenv"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/providers/openai"
 )
 
 func init() {
@@ -297,8 +297,8 @@ import (
     "log"
     "os"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
 )
 
 func main() {
@@ -355,11 +355,11 @@ import (
     "log"
     "os"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
-    "github.com/yourusername/gai/providers/anthropic"
-    "github.com/yourusername/gai/providers/ollama"
-    "github.com/yourusername/gai/tools"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
+    "github.com/recera/gai/providers/anthropic"
+    "github.com/recera/gai/providers/ollama"
+    "github.com/recera/gai/tools"
 )
 
 func main() {
@@ -501,7 +501,7 @@ let g:go_auto_type_info = 1
 
 #### Issue: Module not found
 ```
-go: github.com/yourusername/gai: module not found
+go: github.com/recera/gai: module not found
 ```
 
 **Solution:**
@@ -527,7 +527,7 @@ go: conflicting versions of module
 go get -u ./...
 
 # Or specify exact versions
-go get github.com/yourusername/gai@v1.0.0
+go get github.com/recera/gai@v1.0.0
 ```
 
 #### Issue: API key not found
@@ -580,11 +580,11 @@ curl http://localhost:11434/api/tags
 If you encounter issues:
 
 1. Check the [FAQ](../troubleshooting/faq.md)
-2. Search [existing issues](https://github.com/yourusername/gai/issues)
+2. Search [existing issues](https://github.com/recera/gai/issues)
 3. Join our [Discord community](https://discord.gg/gai)
-4. Create a [new issue](https://github.com/yourusername/gai/issues/new) with:
+4. Create a [new issue](https://github.com/recera/gai/issues/new) with:
    - Go version (`go version`)
-   - GAI version (`go list -m github.com/yourusername/gai`)
+   - GAI version (`go list -m github.com/recera/gai`)
    - Error messages
    - Minimal reproduction code
 

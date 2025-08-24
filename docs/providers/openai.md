@@ -42,7 +42,7 @@ The OpenAI provider gives you access to state-of-the-art language models includi
 ### 1. Install the OpenAI Provider
 
 ```bash
-go get github.com/yourusername/gai/providers/openai@latest
+go get github.com/recera/gai/providers/openai@latest
 ```
 
 ### 2. Obtain an API Key
@@ -77,8 +77,8 @@ import (
     "log"
     "os"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
 )
 
 func main() {
@@ -153,9 +153,8 @@ provider := openai.New(
 // For Azure OpenAI Service
 provider := openai.New(
     openai.WithAPIKey(azureKey),
-    openai.WithBaseURL("https://your-resource.openai.azure.com"),
-    openai.WithAPIVersion("2024-02-15-preview"),
-    openai.WithAzureDeployment("your-deployment-name"),
+    openai.WithBaseURL("https://your-resource.openai.azure.com/openai/deployments/your-deployment"),
+    // Azure uses the deployment name in the URL path
 )
 ```
 
@@ -888,23 +887,23 @@ func handleOpenAIErrors(provider *openai.Provider) {
             time.Sleep(core.GetRetryAfter(err))
             // Retry request
             
-        case core.IsContextLengthExceeded(err):
-            // Handle context length errors
+        case core.IsContextSizeExceeded(err):
+            // Handle context size errors
             fmt.Println("Context too long. Trimming messages...")
             // Trim messages and retry
             
-        case core.IsInvalidRequest(err):
+        case core.IsBadRequest(err):
             // Handle validation errors
             fmt.Println("Invalid request:", err)
             // Fix request parameters
             
-        case core.IsUnauthorized(err):
+        case core.IsAuth(err):
             // Handle auth errors
             fmt.Println("Authentication failed. Check API key.")
             
-        case core.IsProviderUnavailable(err):
-            // Handle OpenAI service issues
-            fmt.Println("OpenAI service unavailable. Trying fallback...")
+        case core.IsOverloaded(err):
+            // Handle service overload issues
+            fmt.Println("Service overloaded. Trying fallback...")
             // Use fallback provider
             
         default:

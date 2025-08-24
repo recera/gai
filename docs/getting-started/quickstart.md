@@ -36,8 +36,8 @@ import (
     "log"
     "os"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
 )
 
 func main() {
@@ -130,8 +130,8 @@ import (
     "log"
     "os"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
 )
 
 func main() {
@@ -231,8 +231,8 @@ import (
     "os"
     "strings"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
 )
 
 func main() {
@@ -385,9 +385,9 @@ import (
     "os"
     "time"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
-    "github.com/yourusername/gai/tools"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
+    "github.com/recera/gai/tools"
 )
 
 // Define tool input/output structures
@@ -588,8 +588,8 @@ import (
     "log"
     "os"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/openai"
 )
 
 // Define the structure we want to extract
@@ -766,11 +766,11 @@ import (
     "os"
     "time"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/anthropic"
-    "github.com/yourusername/gai/providers/gemini"
-    "github.com/yourusername/gai/providers/ollama"
-    "github.com/yourusername/gai/providers/openai"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/anthropic"
+    "github.com/recera/gai/providers/gemini"
+    "github.com/recera/gai/providers/ollama"
+    "github.com/recera/gai/providers/openai"
 )
 
 func main() {
@@ -955,7 +955,7 @@ provider := gemini.New(...)      // same API!
 
 - 📖 [Documentation](../)
 - 💬 [Discord Community](https://discord.gg/gai)
-- 🐛 [GitHub Issues](https://github.com/yourusername/gai/issues)
+- 🐛 [GitHub Issues](https://github.com/recera/gai/issues)
 - 📧 [Email Support](mailto:support@gai.dev)
 
 ---

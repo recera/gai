@@ -50,7 +50,7 @@ The Anthropic provider gives you access to the Claude family of models, known fo
 ### 1. Install the Anthropic Provider
 
 ```bash
-go get github.com/yourusername/gai/providers/anthropic@latest
+go get github.com/recera/gai/providers/anthropic@latest
 ```
 
 ### 2. Obtain an API Key
@@ -71,7 +71,7 @@ export ANTHROPIC_API_KEY="sk-ant-...your-key-here..."
 export ANTHROPIC_MODEL="claude-3-opus-20240229"
 
 # Optional: Set API version
-export ANTHROPIC_VERSION="2024-02-15"
+export ANTHROPIC_VERSION="2023-06-01"
 ```
 
 ### 4. Verify Setup
@@ -85,8 +85,8 @@ import (
     "log"
     "os"
     
-    "github.com/yourusername/gai/core"
-    "github.com/yourusername/gai/providers/anthropic"
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/anthropic"
 )
 
 func main() {
@@ -126,7 +126,7 @@ func main() {
 provider := anthropic.New(
     anthropic.WithAPIKey("sk-ant-..."),              // Required
     anthropic.WithModel("claude-3-opus-20240229"),   // Default model
-    anthropic.WithVersion("2024-02-15"),             // API version
+    anthropic.WithVersion("2023-06-01"),             // API version
     anthropic.WithBaseURL("https://api.anthropic.com"), // Custom endpoint
     anthropic.WithTimeout(60 * time.Second),         // Request timeout
     anthropic.WithMaxRetries(3),                     // Retry attempts
@@ -146,15 +146,12 @@ httpClient := &http.Client{
     Timeout: 120 * time.Second,
 }
 
-// Beta features configuration
+// Advanced configuration
 provider := anthropic.New(
     anthropic.WithAPIKey(apiKey),
     anthropic.WithHTTPClient(httpClient),
-    anthropic.WithBetaFeatures([]string{
-        "tools-2024-04-04",        // Enhanced tool calling
-        "max-tokens-3-5-sonnet",   // Extended token limits
-    }),
     anthropic.WithMetricsCollector(metricsCollector),
+    // Note: Beta features would be handled via headers if needed
 )
 ```
 
@@ -166,7 +163,7 @@ func createProviderFromEnv() *anthropic.Provider {
     return anthropic.New(
         anthropic.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
         anthropic.WithModel(getEnvOrDefault("ANTHROPIC_MODEL", "claude-3-sonnet-20240229")),
-        anthropic.WithVersion(getEnvOrDefault("ANTHROPIC_VERSION", "2024-02-15")),
+        anthropic.WithVersion(getEnvOrDefault("ANTHROPIC_VERSION", "2023-06-01")),
     )
 }
 
@@ -981,15 +978,15 @@ func handleAnthropicErrors(provider *anthropic.Provider) {
             time.Sleep(waitTime)
             // Retry logic here
             
-        case core.IsContextLengthExceeded(err):
+        case core.IsContextSizeExceeded(err):
             fmt.Println("Message too long for Claude")
             // Implement context reduction strategy
             
-        case core.IsInvalidRequest(err):
+        case core.IsBadRequest(err):
             fmt.Println("Invalid request format:", err)
             // Fix request parameters
             
-        case core.IsUnauthorized(err):
+        case core.IsAuth(err):
             fmt.Println("API key issue:", err)
             // Check API key configuration
             
@@ -997,8 +994,8 @@ func handleAnthropicErrors(provider *anthropic.Provider) {
             fmt.Println("Content blocked by safety filters")
             // Adjust content or handle gracefully
             
-        case core.IsProviderUnavailable(err):
-            fmt.Println("Anthropic service is unavailable")
+        case core.IsOverloaded(err):
+            fmt.Println("Service is overloaded")
             // Use fallback or queue for later
             
         default:
