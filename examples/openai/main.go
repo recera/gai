@@ -204,9 +204,9 @@ func toolCallingExample(ctx context.Context, provider core.Provider) {
 				},
 			},
 		},
-		Tools: []core.ToolHandle{&toolAdapter{weatherTool}},
+		Tools:      []core.ToolHandle{tools.NewCoreAdapter(weatherTool)},
 		ToolChoice: core.ToolAuto,
-		MaxTokens: 200,
+		MaxTokens:  200,
 	})
 
 	if err != nil {

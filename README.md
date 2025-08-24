@@ -1,24 +1,23 @@
 # GAI - Go AI Framework
 
-[![CI](https://github.com/recera/gai/actions/workflows/ci.yml/badge.svg)](https://github.com/recera/gai/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/recera/gai.svg)](https://pkg.go.dev/github.com/recera/gai)
 [![Go Report Card](https://goreportcard.com/badge/github.com/recera/gai)](https://goreportcard.com/report/github.com/recera/gai)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A production-grade, provider-agnostic Go framework for building AI applications with support for OpenAI, Anthropic, Google Gemini, Ollama, and any OpenAI-compatible API.
+A production-grade, provider-agnostic Go framework for building AI applications with OpenAI and OpenAI-compatible APIs.
 
 ## Features
 
-- 🔄 **Provider Agnostic** - Single interface for all AI providers
+- 🔄 **Provider Agnostic** - Single interface for AI providers
 - 🏗️ **Typed APIs** - Full type safety with generics for structured outputs
 - 🔧 **Tool Calling** - Type-safe tools with automatic JSON Schema generation
 - 🌊 **Streaming** - First-class streaming support with SSE and NDJSON
 - 📊 **Observability** - Built-in OpenTelemetry tracing and metrics
 - 🔄 **Multi-Step** - Automatic multi-step execution with tool loops
-- 🎯 **Router** - Intelligent routing based on cost, latency, and capabilities
-- 🧰 **MCP Support** - Import and export tools via Model Context Protocol
-- 🎙️ **Multimodal** - Support for text, images, audio, video, and files
 - 🛡️ **Production Ready** - Comprehensive error handling, retries, and safety
+- 🎯 **Structured Outputs** - Type-safe JSON generation with schema validation
+- 📝 **Prompt Management** - Versioned templates with hot reload support
+- 🚀 **Development Tools** - Built-in CLI with dev server and examples
 
 ## Installation
 
@@ -43,13 +42,13 @@ import (
 
 func main() {
     // Create a provider
-    client := openai.New(
+    var provider core.Provider = openai.New(
         openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
     )
 
     // Generate text
     ctx := context.Background()
-    result, err := client.GenerateText(ctx, core.Request{
+    result, err := provider.GenerateText(ctx, core.Request{
         Messages: []core.Message{
             {
                 Role: core.User,
@@ -72,7 +71,7 @@ func main() {
 
 ```go
 // Stream responses for real-time output
-stream, err := client.StreamText(ctx, core.Request{
+stream, err := provider.StreamText(ctx, core.Request{
     Messages: messages,
     Stream: true,
 })
@@ -100,18 +99,19 @@ type Recipe struct {
     Steps       []string `json:"steps"`
 }
 
-result, err := client.GenerateObject[Recipe](ctx, core.Request{
+result, err := provider.GenerateObject(ctx, core.Request{
     Messages: []core.Message{
         {Role: core.User, Parts: []core.Part{
             core.Text{Text: "Give me a recipe for chocolate chip cookies"},
         }},
     },
-})
+}, Recipe{})
 if err != nil {
     log.Fatal(err)
 }
 
-fmt.Printf("Recipe: %s\n", result.Value.Name)
+recipe := result.Value.(*Recipe)
+fmt.Printf("Recipe: %s\n", recipe.Name)
 ```
 
 ## Tool Calling
@@ -139,63 +139,129 @@ weatherTool := tools.New[WeatherInput, WeatherOutput](
     },
 )
 
-// Use in request
-result, err := client.GenerateText(ctx, core.Request{
+// Convert to core handles and use in request
+coreTools := tools.ToCoreHandles([]tools.Handle{weatherTool})
+result, err := provider.GenerateText(ctx, core.Request{
     Messages: messages,
-    Tools:    []tools.Handle{weatherTool},
-    StopWhen: core.MaxSteps(3),
+    Tools:    coreTools,
+    ToolChoice: core.ToolAuto,
 })
 ```
 
-## Supported Providers
+## Middleware
 
-- **OpenAI** - GPT-4, GPT-3.5, and other OpenAI models
-- **Anthropic** - Claude 3 family
-- **Google Gemini** - Gemini Pro and Flash
-- **Ollama** - Local models
-- **OpenAI Compatible** - Groq, xAI, Baseten, Cerebras, and any OpenAI-compatible endpoint
+Apply production-ready middleware for retries and rate limiting:
+
+```go
+import "github.com/recera/gai/middleware"
+
+provider = middleware.Chain(
+    middleware.WithRetry(middleware.RetryOpts{
+        MaxAttempts: 3,
+        BaseDelay:   time.Second,
+        Jitter:      true,
+    }),
+    middleware.WithRateLimit(middleware.RateLimitOpts{
+        RPS:   10,
+        Burst: 20,
+    }),
+)(provider)
+```
+
+## Development Server
+
+The framework includes a development server for testing:
+
+```bash
+# Install the CLI
+go install ./cmd/ai
+
+# Start the development server
+ai dev serve
+
+# Visit http://localhost:8080 for an interactive web interface
+```
+
+The dev server provides:
+- Interactive web UI for testing
+- SSE streaming endpoint (`/api/chat`)
+- NDJSON streaming endpoint (`/api/chat/ndjson`)
+- Traditional REST endpoint (`/api/generate`)
+- Health check endpoint (`/api/health`)
+
+## Examples
+
+See the [examples](./examples) directory for comprehensive examples:
+
+- **[hello-text](./examples/hello-text)** - Basic text generation
+- **[hello-stream](./examples/hello-stream)** - Streaming responses
+- **[hello-object](./examples/hello-object)** - Structured outputs
+- **[hello-tool](./examples/hello-tool)** - Tool calling and multi-step workflows
 
 ## Architecture
 
 The framework is organized into focused packages:
 
 - `core` - Core types and interfaces
-- `providers/*` - Provider implementations
-- `tools` - Tool definition and execution
+- `providers/openai` - OpenAI provider implementation
+- `tools` - Tool definition and execution with JSON Schema
 - `stream` - Streaming utilities (SSE, NDJSON)
 - `prompts` - Prompt management and versioning
-- `router` - Multi-provider routing
-- `middleware` - Retry, rate limiting, safety
-- `mcp` - Model Context Protocol support
+- `middleware` - Retry, rate limiting, and safety
+- `obs` - Observability with OpenTelemetry
+
+## Current Implementation Status
+
+### ✅ Completed
+- Core framework with provider abstraction
+- OpenAI provider with full feature support
+- Type-safe tool calling with JSON Schema generation
+- Streaming support (SSE and NDJSON)
+- Structured output generation
+- Middleware (retry, rate limiting, safety)
+- Prompt management with versioning
+- Observability with OpenTelemetry
+- CLI with development server
+- Comprehensive examples
+
+### 🚧 In Progress
+- Anthropic provider
+- Google Gemini provider
+- Ollama provider
+- OpenAI-compatible adapter for Groq, xAI, etc.
+- Model routing and failover
+- MCP (Model Context Protocol) support
+- Audio/multimodal support
 
 ## Development
 
 ```bash
 # Run tests
-make test
+go test ./...
 
-# Run with coverage
-make coverage
-
-# Run linters
-make lint
+# Run with race detection
+go test -race ./...
 
 # Run benchmarks
-make benchmark
+go test -bench=. ./...
 
-# Run all CI checks locally
-make ci
+# Build the CLI
+go build -o ai ./cmd/ai
 ```
 
 ## Documentation
 
-Full documentation is available at [pkg.go.dev/github.com/recera/gai](https://pkg.go.dev/github.com/recera/gai).
+Full documentation and API reference coming soon at pkg.go.dev.
 
-See the [examples](./examples) directory for more usage patterns.
+See the [examples](./examples) directory for detailed usage patterns.
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please ensure:
+- All tests pass
+- Code follows Go idioms
+- New features include tests
+- Documentation is updated
 
 ## License
 
@@ -203,4 +269,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](./LICE
 
 ## Status
 
-This project is in active development (v0.x). APIs may change before v1.0.
+This project is in active development (v0.8.x). The core API is stabilizing, but some features are still being implemented. Production use is possible with the completed features.
