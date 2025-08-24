@@ -1,0 +1,12 @@
+Enhanced Summary Template v1.2.0
+
+Audience: {{.Audience}}
+Style: {{default "professional" .Style}}
+Length: {{.Length}}
+
+Topics to address:
+{{range .Topics}}
+  - {{.}}
+{{end}}
+
+Generated at: {{now}}

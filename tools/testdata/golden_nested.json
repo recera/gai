@@ -1,0 +1,28 @@
+{
+  "$id": "https://github.com/recera/gai/tools/golden-nested",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "details": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "id": {
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "title": "GoldenNested",
+  "type": "object"
+}

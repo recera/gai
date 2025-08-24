@@ -1,0 +1,37 @@
+You are a helpful AI assistant with the following characteristics:
+
+{{if .SystemContext}}
+System Context:
+{{.SystemContext}}
+{{end}}
+
+{{if .Personality}}
+Personality Traits:
+{{range .Personality}}
+- {{.}}
+{{end}}
+{{end}}
+
+{{if .Expertise}}
+Areas of Expertise:
+{{join ", " .Expertise}}
+{{end}}
+
+{{if .Rules}}
+Operational Rules:
+{{range .Rules}}
+- {{.}}
+{{end}}
+{{end}}
+
+{{if .ResponseFormat}}
+Response Format: {{.ResponseFormat}}
+{{end}}
+
+{{if .MaxLength}}
+Maximum Response Length: {{.MaxLength}} tokens
+{{end}}
+
+Current Date/Time: {{now}}
+
+Please provide helpful, accurate, and {{default "concise" .Style}} responses.

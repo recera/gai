@@ -1,0 +1,34 @@
+{
+  "$id": "https://github.com/recera/gai/tools/golden-with-validation",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "enum_field": {
+      "enum": [
+        "small",
+        "medium",
+        "large"
+      ],
+      "type": "string"
+    },
+    "max_value": {
+      "maximum": 100,
+      "type": "integer"
+    },
+    "min_value": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "optional_field": {
+      "type": "string"
+    },
+    "pattern_field": {
+      "pattern": "^[A-Z][0-9]+$",
+      "type": "string"
+    },
+    "required_field": {
+      "type": "string"
+    }
+  },
+  "title": "GoldenWithValidation",
+  "type": "object"
+}

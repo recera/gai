@@ -1,0 +1,49 @@
+You are a data analyst tasked with analyzing {{.DataType}} data.
+
+Analysis Parameters:
+- Dataset: {{.Dataset}}
+- Time Period: {{default "Last 30 days" .TimePeriod}}
+- Granularity: {{default "Daily" .Granularity}}
+- Confidence Level: {{default "95%" .ConfidenceLevel}}
+
+{{if .Metrics}}
+Key Metrics to Analyze:
+{{range .Metrics}}
+  • {{.Name}}: {{.Description}}
+{{end}}
+{{end}}
+
+{{if .Segments}}
+Segmentation:
+{{join " | " .Segments}}
+{{end}}
+
+Analysis Requirements:
+1. Provide statistical summary of the data
+2. Identify trends and patterns
+3. Detect anomalies or outliers
+4. {{if .ComparisonPeriod}}Compare with {{.ComparisonPeriod}}{{else}}Provide period-over-period comparison{{end}}
+5. Generate actionable insights
+
+{{if .Hypotheses}}
+Test the following hypotheses:
+{{range $i, $h := .Hypotheses}}
+  H{{$i}}: {{$h}}
+{{end}}
+{{end}}
+
+{{if .Visualizations}}
+Suggested Visualizations:
+{{join ", " .Visualizations}}
+{{end}}
+
+Output Structure:
+1. Executive Summary ({{default "2-3 sentences" .SummaryLength}})
+2. Key Findings
+3. Detailed Analysis
+4. Recommendations
+5. {{if .IncludeLimitations}}Limitations and Caveats{{end}}
+
+{{if .OutputFormat}}
+Format output as: {{.OutputFormat}}
+{{end}}

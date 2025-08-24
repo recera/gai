@@ -1,0 +1,49 @@
+{
+  "$id": "https://github.com/recera/gai/tools/golden-arrays-and-maps",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "any_map": {
+      "type": "object"
+    },
+    "int_list": {
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "object_list": {
+      "items": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "age": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "string_list": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "string_map": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    }
+  },
+  "title": "GoldenArraysAndMaps",
+  "type": "object"
+}

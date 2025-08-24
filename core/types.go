@@ -180,11 +180,20 @@ type Request struct {
 	Stream bool `json:"stream"`
 }
 
-// ToolHandle is a placeholder interface for tools.
-// Will be properly defined in the tools package.
+// ToolHandle represents a tool that can be executed by the AI.
+// This is defined here to avoid circular dependencies, but the
+// concrete implementation is in the tools package.
 type ToolHandle interface {
+	// Name returns the unique identifier for this tool
 	Name() string
+	// Description returns a human-readable description of what the tool does
 	Description() string
+	// InSchemaJSON returns the JSON Schema for the tool's input parameters
+	InSchemaJSON() []byte
+	// OutSchemaJSON returns the JSON Schema for the tool's output
+	OutSchemaJSON() []byte
+	// Exec executes the tool with raw JSON input and returns the result
+	Exec(ctx context.Context, raw json.RawMessage, meta interface{}) (any, error)
 }
 
 // Usage tracks token consumption for a request.

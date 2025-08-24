@@ -332,12 +332,22 @@ func (r *Runner) executeTool(ctx context.Context, tool ToolHandle, call ToolCall
 		}
 	}()
 	
-	// Note: In the full implementation, this would call tool.Execute
-	// with proper type conversion. For now, return a placeholder.
-	return map[string]any{
-		"status": "executed",
-		"tool":   call.Name,
-	}, nil
+	// Create meta information for tool execution
+	// The meta type is defined in the tools package, but we pass it as interface{}
+	// to avoid circular dependencies
+	meta := map[string]interface{}{
+		"call_id":     call.ID,
+		"messages":    messages,
+		"step_number": len(messages), // Approximate step number based on message count
+	}
+	
+	// Execute the tool using its Exec method
+	result, err = tool.Exec(ctx, call.Input, meta)
+	if err != nil {
+		return nil, fmt.Errorf("tool execution failed: %w", err)
+	}
+	
+	return result, nil
 }
 
 // toolResultToMessage converts a tool execution result to a message.

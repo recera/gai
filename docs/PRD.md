@@ -660,6 +660,7 @@ store.Index(ctx, rag.Documents{
   {ID: "doc1", Text: "Neural networks are universal approximators..."},
 })
 
+
 // 2) Query top-k
 neighbors, _ := store.Search(ctx, "What is a universal approximator?", 3)
 
