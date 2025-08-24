@@ -509,59 +509,21 @@ func (p *Provider) doRequestOnce(ctx context.Context, method, path string, body 
 
 // shouldRetry determines if a request should be retried based on status code.
 func (p *Provider) shouldRetry(statusCode int) bool {
-	switch statusCode {
-	case 429, 500, 502, 503, 504:
+	// Map the status code to our error taxonomy to determine if it's retryable
+	code := mapStatusCode(statusCode)
+	// Check if this error code is typically transient
+	switch code {
+	case core.ErrorRateLimited, core.ErrorOverloaded, core.ErrorTimeout, 
+	     core.ErrorNetwork, core.ErrorProviderUnavailable, core.ErrorInternal:
 		return true
 	default:
-		return false
+		// Also retry on specific status codes that might not map cleanly
+		return statusCode == 502 || statusCode == 504
 	}
 }
 
 // parseError parses an error response from the API.
 func (p *Provider) parseError(resp *http.Response) error {
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("HTTP %d (failed to read body: %w)", resp.StatusCode, err)
-	}
-
-	var apiErr struct {
-		Error struct {
-			Message string `json:"message"`
-			Type    string `json:"type"`
-			Code    string `json:"code"`
-		} `json:"error"`
-	}
-
-	if err := json.Unmarshal(body, &apiErr); err != nil {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, body)
-	}
-
-	// Convert to core.AIError
-	category := p.errorCategoryFromStatus(resp.StatusCode)
-	aiErr := core.NewAIError(category, "openai", apiErr.Error.Message)
-	aiErr.WithCode(apiErr.Error.Code).WithHTTPStatus(resp.StatusCode)
-	return aiErr
-}
-
-// errorCategoryFromStatus maps HTTP status codes to error categories.
-func (p *Provider) errorCategoryFromStatus(status int) core.ErrorCategory {
-	switch status {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return core.ErrorCategoryAuth
-	case http.StatusNotFound:
-		return core.ErrorCategoryNotFound
-	case http.StatusTooManyRequests:
-		return core.ErrorCategoryRateLimit
-	case http.StatusBadRequest:
-		return core.ErrorCategoryBadRequest
-	case http.StatusRequestTimeout:
-		return core.ErrorCategoryTimeout
-	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable:
-		return core.ErrorCategoryTransient
-	default:
-		if status >= 500 {
-			return core.ErrorCategoryTransient
-		}
-		return core.ErrorCategoryUnknown
-	}
+	// Use the new error mapper
+	return MapError(resp)
 }

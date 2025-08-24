@@ -147,7 +147,7 @@ func TestChain_RealMiddleware(t *testing.T) {
 			count := atomic.AddInt32(&attempts, 1)
 			if count == 1 {
 				// First attempt fails with transient error
-				return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "temporary failure")
+				return nil, core.NewError(core.ErrorInternal, "temporary failure", core.WithProvider("test"))
 			}
 			// Check if content was filtered
 			if len(req.Messages) > 0 && len(req.Messages[0].Parts) > 0 {

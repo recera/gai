@@ -8,7 +8,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/recera/gai/core"
 	"github.com/recera/gai/obs"
 	"github.com/recera/gai/tools"
 	"go.opentelemetry.io/otel"

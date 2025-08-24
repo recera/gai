@@ -29,7 +29,7 @@ type GoldenDetail struct {
 }
 
 type GoldenWithValidation struct {
-	RequiredField string  `json:"required_field"`
+	RequiredField string  `json:"required_field" jsonschema:"required"`
 	OptionalField string  `json:"optional_field,omitempty"`
 	MinValue      int     `json:"min_value" jsonschema:"minimum=0"`
 	MaxValue      int     `json:"max_value" jsonschema:"maximum=100"`
@@ -291,6 +291,12 @@ func TestGoldenValidation(t *testing.T) {
 	schema, err := GenerateSchema(reflect.TypeOf(GoldenWithValidation{}))
 	if err != nil {
 		t.Fatalf("Failed to generate schema: %v", err)
+	}
+	
+	// Debug: Check what's in the schema
+	if testing.Verbose() {
+		schemaJSON, _ := json.MarshalIndent(schema, "", "  ")
+		t.Logf("Generated schema:\n%s", schemaJSON)
 	}
 
 	// Test cases for validation

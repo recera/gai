@@ -116,7 +116,7 @@ func TestRetryMiddleware_RetryOnTransientError(t *testing.T) {
 		generateTextFunc: func(ctx context.Context, req core.Request) (*core.TextResult, error) {
 			attempts++
 			if attempts < 3 {
-				return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "transient error")
+				return nil, core.NewError(core.ErrorProviderUnavailable, "transient error", core.WithProvider("test"))
 			}
 			return &core.TextResult{Text: "success after retries"}, nil
 		},
@@ -153,7 +153,7 @@ func TestRetryMiddleware_RetryOnTransientError(t *testing.T) {
 func TestRetryMiddleware_NoRetryOnBadRequest(t *testing.T) {
 	mock := &mockProvider{
 		generateTextFunc: func(ctx context.Context, req core.Request) (*core.TextResult, error) {
-			return nil, core.NewAIError(core.ErrorCategoryBadRequest, "test", "bad request")
+			return nil, core.NewError(core.ErrorInvalidRequest, "bad request", core.WithProvider("test"))
 		},
 	}
 
@@ -182,8 +182,9 @@ func TestRetryMiddleware_RateLimitWithRetryAfter(t *testing.T) {
 	retryAfterSeconds := 1
 	mock := &mockProvider{
 		generateTextFunc: func(ctx context.Context, req core.Request) (*core.TextResult, error) {
-			return nil, core.NewAIError(core.ErrorCategoryRateLimit, "test", "rate limited").
-				WithRetryAfter(retryAfterSeconds)
+			return nil, core.NewError(core.ErrorRateLimited, "rate limited", 
+				core.WithProvider("test"),
+				core.WithRetryAfter(time.Duration(retryAfterSeconds)*time.Second))
 		},
 	}
 
@@ -211,7 +212,7 @@ func TestRetryMiddleware_RateLimitWithRetryAfter(t *testing.T) {
 func TestRetryMiddleware_ExhaustedAttempts(t *testing.T) {
 	mock := &mockProvider{
 		generateTextFunc: func(ctx context.Context, req core.Request) (*core.TextResult, error) {
-			return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "always fails")
+			return nil, core.NewError(core.ErrorProviderUnavailable, "always fails", core.WithProvider("test"))
 		},
 	}
 
@@ -239,7 +240,7 @@ func TestRetryMiddleware_ExhaustedAttempts(t *testing.T) {
 func TestRetryMiddleware_ContextCancellation(t *testing.T) {
 	mock := &mockProvider{
 		generateTextFunc: func(ctx context.Context, req core.Request) (*core.TextResult, error) {
-			return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "transient")
+			return nil, core.NewError(core.ErrorProviderUnavailable, "transient", core.WithProvider("test"))
 		},
 	}
 
@@ -320,7 +321,7 @@ func TestRetryMiddleware_ExponentialBackoff(t *testing.T) {
 			attempts++
 			
 			if attempts <= 3 {
-				return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "transient")
+				return nil, core.NewError(core.ErrorProviderUnavailable, "transient", core.WithProvider("test"))
 			}
 			return &core.TextResult{Text: "success"}, nil
 		},
@@ -368,7 +369,7 @@ func TestRetryMiddleware_MaxDelay(t *testing.T) {
 		generateTextFunc: func(ctx context.Context, req core.Request) (*core.TextResult, error) {
 			attempts++
 			if attempts < 5 {
-				return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "transient")
+				return nil, core.NewError(core.ErrorProviderUnavailable, "transient", core.WithProvider("test"))
 			}
 			return &core.TextResult{Text: "success"}, nil
 		},
@@ -406,7 +407,7 @@ func TestRetryMiddleware_StreamingRetry(t *testing.T) {
 		streamTextFunc: func(ctx context.Context, req core.Request) (core.TextStream, error) {
 			attempts++
 			if attempts < 2 {
-				return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "connection failed")
+				return nil, core.NewError(core.ErrorProviderUnavailable, "connection failed", core.WithProvider("test"))
 			}
 			return &mockTextStream{}, nil
 		},

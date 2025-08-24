@@ -119,6 +119,16 @@ func (c *Collector) EndRequest() {
 	DecrementActiveRequests(c.ctx, c.provider)
 }
 
+// GetUsage returns the current usage data for the provider
+func (c *Collector) GetUsage() *ProviderUsage {
+	if c.usageCollector != nil {
+		return c.usageCollector.GetProviderUsage(c.provider)
+	}
+	return &ProviderUsage{
+		Provider: c.provider,
+	}
+}
+
 
 // IntegratedCollector provides a complete metrics collection solution
 // that implements core.MetricsCollector and integrates with OpenTelemetry
@@ -222,7 +232,7 @@ func getErrorType(err error) string {
 	
 	// Check if it's an AIError
 	if aiErr, ok := err.(*core.AIError); ok {
-		return aiErr.Category.String()
+		return string(aiErr.Code)
 	}
 	
 	// Default to generic error

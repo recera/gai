@@ -78,7 +78,7 @@ func BenchmarkRetryMiddleware_OneRetry(b *testing.B) {
 			generateTextFunc: func(ctx context.Context, req core.Request) (*core.TextResult, error) {
 				attempt++
 				if attempt == 1 {
-					return nil, core.NewAIError(core.ErrorCategoryTransient, "test", "transient")
+					return nil, core.NewError(core.ErrorInternal, "transient", core.WithProvider("test"))
 				}
 				return &core.TextResult{Text: "response"}, nil
 			},

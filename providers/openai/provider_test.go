@@ -546,12 +546,12 @@ func TestRetryLogic(t *testing.T) {
 	attemptCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attemptCount++
-		if attemptCount < 3 {
-			// Return 503 for first two attempts
+		if attemptCount < 4 {
+			// Return 503 for first three attempts
 			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		// Success on third attempt
+		// Success on fourth attempt
 		resp := chatCompletionResponse{
 			ID:      "success",
 			Object:  "chat.completion",
@@ -601,8 +601,9 @@ func TestRetryLogic(t *testing.T) {
 		t.Error("Retry logic did not work correctly")
 	}
 
-	if attemptCount != 3 {
-		t.Errorf("Expected 3 attempts, got %d", attemptCount)
+	// maxRetries=3 means 1 initial attempt + 3 retries = 4 total attempts
+	if attemptCount != 4 {
+		t.Errorf("Expected 4 attempts (1 initial + 3 retries), got %d", attemptCount)
 	}
 }
 

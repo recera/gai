@@ -152,6 +152,10 @@ type Session struct {
 
 // Request represents a unified request to any AI provider.
 type Request struct {
+	// RequestID is a unique identifier for this request (auto-generated if empty)
+	RequestID string `json:"request_id,omitempty"`
+	// IdempotencyKey enables request deduplication (client-supplied)
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
 	// Model specifies which model to use
 	Model string `json:"model,omitempty"`
 	// Messages contains the conversation history

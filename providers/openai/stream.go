@@ -276,10 +276,13 @@ func (p *Provider) parseErrorFromBody(statusCode int, body []byte) error {
 		return fmt.Errorf("HTTP %d: %s", statusCode, body)
 	}
 
-	category := p.errorCategoryFromStatus(statusCode)
-	aiErr := core.NewAIError(category, "openai", apiErr.Error.Message)
-	aiErr.WithCode(apiErr.Error.Code).WithHTTPStatus(statusCode)
-	return aiErr
+	// Create a mock response to use the error mapper
+	resp := &http.Response{
+		StatusCode: statusCode,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     make(http.Header),
+	}
+	return MapError(resp)
 }
 
 // objectStream implements core.ObjectStream for structured output streaming.

@@ -112,10 +112,10 @@ func (m *safetyMiddleware) checkBlocked(content string) error {
 			if m.opts.OnBlocked != nil {
 				m.opts.OnBlocked(reason, content)
 			}
-			return core.NewAIError(
-				core.ErrorCategoryContentFilter,
-				"middleware",
+			return core.NewError(
+				core.ErrorSafetyBlocked,
 				reason,
+				core.WithProvider("middleware"),
 			)
 		}
 	}
@@ -128,10 +128,10 @@ func (m *safetyMiddleware) checkBlocked(content string) error {
 			if m.opts.OnBlocked != nil {
 				m.opts.OnBlocked(reason, content)
 			}
-			return core.NewAIError(
-				core.ErrorCategoryContentFilter,
-				"middleware",
+			return core.NewError(
+				core.ErrorSafetyBlocked,
 				reason,
+				core.WithProvider("middleware"),
 			)
 		}
 	}
@@ -142,10 +142,10 @@ func (m *safetyMiddleware) checkBlocked(content string) error {
 		if m.opts.OnBlocked != nil {
 			m.opts.OnBlocked(reason, content)
 		}
-		return core.NewAIError(
-			core.ErrorCategoryContentFilter,
-			"middleware",
+		return core.NewError(
+			core.ErrorSafetyBlocked,
 			reason,
+			core.WithProvider("middleware"),
 		)
 	}
 
@@ -306,10 +306,10 @@ func (s *safetyStream) processStream() {
 				// Send error event and stop
 				s.events <- core.Event{
 					Type: core.EventError,
-					Err: core.NewAIError(
-						core.ErrorCategoryContentFilter,
-						"middleware",
+					Err: core.NewError(
+						core.ErrorSafetyBlocked,
 						fmt.Sprintf("stopped due to safety event: %s", event.Safety.Category),
+						core.WithProvider("middleware"),
 					),
 				}
 				return

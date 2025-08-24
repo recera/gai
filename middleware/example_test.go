@@ -409,8 +409,8 @@ func Example_production() {
 		switch {
 		case core.IsRateLimited(err):
 			// Handle rate limiting
-			if retryAfter, ok := core.GetRetryAfter(err); ok {
-				fmt.Printf("Rate limited, retry after %d seconds\n", retryAfter)
+			if retryAfter := core.GetRetryAfter(err); retryAfter > 0 {
+				fmt.Printf("Rate limited, retry after %v\n", retryAfter)
 			}
 		case core.IsAuth(err):
 			// Handle auth errors

@@ -120,11 +120,12 @@ func (m *rateLimitMiddleware) waitForToken(ctx context.Context, method string) e
 	// If we can't wait that long, cancel the reservation and return error
 	if waitTime > m.opts.WaitTimeout && m.opts.WaitTimeout > 0 {
 		reservation.Cancel()
-		return core.NewAIError(
-			core.ErrorCategoryRateLimit,
-			"middleware",
+		return core.NewError(
+			core.ErrorRateLimited,
 			fmt.Sprintf("rate limit exceeded, would need to wait %v", waitTime),
-		).WithRetryAfter(int(waitTime.Seconds()))
+			core.WithProvider("middleware"),
+			core.WithRetryAfter(waitTime),
+		)
 	}
 
 	// Notify observer if configured
@@ -141,11 +142,12 @@ func (m *rateLimitMiddleware) waitForToken(ctx context.Context, method string) e
 		// Context cancelled or timed out
 		reservation.Cancel()
 		if waitCtx.Err() == context.DeadlineExceeded {
-			return core.NewAIError(
-				core.ErrorCategoryRateLimit,
-				"middleware",
+			return core.NewError(
+				core.ErrorRateLimited,
 				fmt.Sprintf("rate limit wait timeout after %v", m.opts.WaitTimeout),
-			).WithRetryAfter(int(waitTime.Seconds()))
+				core.WithProvider("middleware"),
+				core.WithRetryAfter(waitTime),
+			)
 		}
 		return waitCtx.Err()
 	case <-timer.C:

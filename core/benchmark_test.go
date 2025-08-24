@@ -91,24 +91,25 @@ func BenchmarkStopConditions(b *testing.B) {
 }
 
 func BenchmarkErrorCreation(b *testing.B) {
-	b.Run("NewAIError", func(b *testing.B) {
+	b.Run("NewError", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = NewAIError(ErrorCategoryRateLimit, "provider", "Rate limit exceeded")
+			_ = NewError(ErrorRateLimited, "Rate limit exceeded", WithProvider("provider"))
 		}
 	})
 	
 	b.Run("WithChaining", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = NewAIError(ErrorCategoryRateLimit, "provider", "Rate limit exceeded").
-				WithCode("rate_limit").
-				WithHTTPStatus(429).
-				WithRetryAfter(30)
+			_ = NewError(ErrorRateLimited, "Rate limit exceeded",
+				WithProvider("provider"),
+				WithHTTPStatus(429),
+				WithRetryAfter(30*time.Second),
+			)
 		}
 	})
 }
 
 func BenchmarkErrorChecks(b *testing.B) {
-	err := NewAIError(ErrorCategoryRateLimit, "provider", "Rate limited")
+	err := NewError(ErrorRateLimited, "Rate limited", WithProvider("provider"))
 	
 	b.Run("IsRateLimited", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -116,17 +117,20 @@ func BenchmarkErrorChecks(b *testing.B) {
 		}
 	})
 	
-	b.Run("IsRetryable", func(b *testing.B) {
+	b.Run("IsTransient", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = IsRetryable(err)
+			_ = IsTransient(err)
 		}
 	})
 	
 	b.Run("GetRetryAfter", func(b *testing.B) {
-		errWithRetry := err.WithRetryAfter(30)
+		errWithRetry := NewError(ErrorRateLimited, "Rate limited", 
+			WithProvider("provider"),
+			WithRetryAfter(30*time.Second),
+		)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, _ = GetRetryAfter(errWithRetry)
+			_ = GetRetryAfter(errWithRetry)
 		}
 	})
 }

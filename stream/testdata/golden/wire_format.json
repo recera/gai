@@ -1,0 +1,5 @@
+{"schema":"gai.events.v1","type":"start","ts":1705311000000,"seq":1,"trace_id":"trace_golden","request_id":"req_golden","provider":"test","model":"test-model"}
+{"schema":"gai.events.v1","type":"text.delta","ts":1705311000000,"seq":2,"trace_id":"trace_golden","request_id":"req_golden","text":"The quick brown fox"}
+{"schema":"gai.events.v1","type":"tool.call","ts":1705311000000,"seq":3,"trace_id":"trace_golden","request_id":"req_golden","call_id":"call_1","tool_call":{"name":"test_tool","input":{"test":true}}}
+{"schema":"gai.events.v1","type":"tool.result","ts":1705311000000,"seq":4,"trace_id":"trace_golden","request_id":"req_golden","tool_result":{"result":"success"}}
+{"schema":"gai.events.v1","type":"finish","ts":1705311000000,"seq":5,"trace_id":"trace_golden","request_id":"req_golden","provider":"test","model":"test-model","usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}

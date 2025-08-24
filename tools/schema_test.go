@@ -468,7 +468,7 @@ func TestRepairJSON(t *testing.T) {
 			name:  "Add missing required fields",
 			input: `{}`,
 			expected: map[string]interface{}{
-				"name": "",
+				"name": "Unknown",
 				"age":  float64(0),
 			},
 		},

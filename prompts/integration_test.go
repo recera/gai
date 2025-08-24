@@ -277,21 +277,20 @@ func TestErrorPropagation(t *testing.T) {
 	}
 
 	// The error should be suitable for wrapping in core.AIError
-	aiErr := &core.AIError{
-		Category:  core.ErrorCategoryBadRequest,
-		Code:      "TEMPLATE_NOT_FOUND",
-		Message:   "prompt template not found",
-		Provider:  "prompts",
-		Cause:     err,
-		Retryable: false,
-	}
+	aiErr := core.NewError(
+		core.ErrorInvalidRequest,
+		"prompt template not found",
+		core.WithProvider("prompts"),
+		core.WithWrapped(err),
+		core.WithTemporary(false),
+	)
 
 	if aiErr.Error() == "" {
 		t.Error("AI error should have a message")
 	}
 
-	if aiErr.Category != core.ErrorCategoryBadRequest {
-		t.Error("AI error should have correct category")
+	if aiErr.Code != core.ErrorInvalidRequest {
+		t.Error("AI error should have correct code")
 	}
 }
 

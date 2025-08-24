@@ -20,6 +20,12 @@ import (
 type Meta struct {
 	// CallID uniquely identifies this tool call within a conversation
 	CallID string
+	// RequestID uniquely identifies the parent request
+	RequestID string
+	// IdempotencyScope for tool-specific deduplication (defaults to RequestID)
+	IdempotencyScope string
+	// Attempt number for this tool execution (1-based)
+	Attempt int
 	// Messages contains the conversation history up to this point
 	Messages []core.Message
 	// StepNumber indicates which step in a multi-step execution this is

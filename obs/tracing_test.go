@@ -9,6 +9,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -271,7 +272,7 @@ func TestRecordError(t *testing.T) {
 	}
 	
 	s := spans[0]
-	if s.Status.Code != 2 { // 2 is Error code
+	if s.Status.Code != codes.Error {
 		t.Errorf("expected error status, got %v", s.Status.Code)
 	}
 	
@@ -310,7 +311,7 @@ func TestRecordToolResult(t *testing.T) {
 	checkAttribute(t, attrs, "tool.duration_ms", 100.0)
 	
 	// Check status
-	if spans[0].Status.Code != 1 { // 1 is OK code
+	if spans[0].Status.Code != codes.Ok {
 		t.Errorf("expected OK status, got %v", spans[0].Status.Code)
 	}
 }
@@ -391,7 +392,7 @@ func TestWithSpan(t *testing.T) {
 		}
 		
 		// Check error was recorded
-		if spans[0].Status.Code != 2 { // 2 is Error
+		if spans[0].Status.Code != codes.Error {
 			t.Errorf("expected error status, got %v", spans[0].Status.Code)
 		}
 	})
@@ -487,8 +488,15 @@ func checkAttribute(t *testing.T, attrs []attribute.KeyValue, key string, expect
 					t.Errorf("attribute %s: expected %v, got %v", key, expected, attr.Value.AsInt64())
 				}
 			case float64:
-				if attr.Value.AsFloat64() != expected {
-					t.Errorf("attribute %s: expected %v, got %v", key, expected, attr.Value.AsFloat64())
+				val := attr.Value.AsFloat64()
+				// Use tolerance for float comparison to handle float32 conversion
+				const tolerance = 0.0000001
+				diff := val - expected
+				if diff < 0 {
+					diff = -diff
+				}
+				if diff > tolerance {
+					t.Errorf("attribute %s: expected %v, got %v", key, expected, val)
 				}
 			case bool:
 				if attr.Value.AsBool() != expected {

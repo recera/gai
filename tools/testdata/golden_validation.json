@@ -29,6 +29,9 @@
       "type": "string"
     }
   },
+  "required": [
+    "required_field"
+  ],
   "title": "GoldenWithValidation",
   "type": "object"
 }

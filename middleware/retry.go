@@ -84,7 +84,7 @@ func (m *retryMiddleware) shouldRetry(err error) bool {
 	}
 
 	// Default retry logic based on error classification
-	return core.IsRetryable(err) || core.IsTransient(err) || core.IsRateLimited(err) || core.IsTimeout(err)
+	return core.IsTransient(err) || core.IsRateLimited(err) || core.IsTimeout(err)
 }
 
 // calculateDelay calculates the delay for the given attempt number.
@@ -147,9 +147,9 @@ func (m *retryMiddleware) retryOperation(ctx context.Context, operation func() e
 
 		// Check for rate limit retry-after header
 		delay := m.calculateDelay(attempt)
-		if retryAfter, ok := core.GetRetryAfter(err); ok {
+		if retryAfter := core.GetRetryAfter(err); retryAfter > 0 {
 			// Use the retry-after value if it's provided
-			delay = time.Duration(retryAfter) * time.Second
+			delay = retryAfter
 		}
 
 		// Wait before retrying

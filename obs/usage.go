@@ -234,15 +234,33 @@ func sprintf(format string, args ...interface{}) string {
 	// Simple implementation for our specific use case
 	if format == "%.2f" && len(args) == 1 {
 		if v, ok := args[0].(float64); ok {
-			whole := int(v)
-			frac := int((v - float64(whole)) * 100)
-			if frac < 0 {
-				frac = -frac
+			// Round to 2 decimal places
+			rounded := int64(v*100 + 0.5)
+			whole := rounded / 100
+			frac := rounded % 100
+			
+			// Convert whole number to string
+			wholeStr := ""
+			if whole == 0 {
+				wholeStr = "0"
+			} else {
+				temp := whole
+				for temp > 0 {
+					digit := temp % 10
+					wholeStr = string('0'+byte(digit)) + wholeStr
+					temp /= 10
+				}
 			}
+			
+			// Format fractional part with leading zero if needed
+			fracStr := ""
 			if frac < 10 {
-				return string('0'+byte(whole/10)) + string('0'+byte(whole%10)) + ".0" + string('0'+byte(frac))
+				fracStr = "0" + string('0'+byte(frac))
+			} else {
+				fracStr = string('0'+byte(frac/10)) + string('0'+byte(frac%10))
 			}
-			return string('0'+byte(whole/10)) + string('0'+byte(whole%10)) + "." + string('0'+byte(frac/10)) + string('0'+byte(frac%10))
+			
+			return wholeStr + "." + fracStr
 		}
 	}
 	return ""
