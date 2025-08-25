@@ -1,31 +1,81 @@
 # GAI - Go AI Framework
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/recera/gai.svg)](https://pkg.go.dev/github.com/recera/gai)
-[![Go Report Card](https://goreportcard.com/badge/github.com/recera/gai)](https://goreportcard.com/report/github.com/recera/gai)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+<div align="center">
+  <h1>🚀 GAI</h1>
+  <p><strong>The Production-Ready, Type-Safe AI Integration Framework for Go</strong></p>
+  
+  [![Go Reference](https://pkg.go.dev/badge/github.com/recera/gai.svg)](https://pkg.go.dev/github.com/recera/gai)
+  [![Go Report Card](https://goreportcard.com/badge/github.com/recera/gai)](https://goreportcard.com/report/github.com/recera/gai)
+  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+  [![Go Version](https://img.shields.io/badge/Go-1.22%2B-blue)](https://go.dev)
+  
+  <p>
+    <a href="#features">Features</a> •
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#providers">Providers</a> •
+    <a href="#documentation">Documentation</a> •
+    <a href="#examples">Examples</a> •
+    <a href="#contributing">Contributing</a>
+  </p>
+</div>
 
-A production-grade, provider-agnostic Go framework for building AI applications with OpenAI and OpenAI-compatible APIs.
+---
 
-## Features
+## 🎯 Overview
 
-- 🔄 **Provider Agnostic** - Single interface for AI providers
-- 🏗️ **Typed APIs** - Full type safety with generics for structured outputs
-- 🔧 **Tool Calling** - Type-safe tools with automatic JSON Schema generation
-- 🌊 **Streaming** - First-class streaming support with SSE and NDJSON
-- 📊 **Observability** - Built-in OpenTelemetry tracing and metrics
-- 🔄 **Multi-Step** - Automatic multi-step execution with tool loops
-- 🛡️ **Production Ready** - Comprehensive error handling, retries, and safety
-- 🎯 **Structured Outputs** - Type-safe JSON generation with schema validation
-- 📝 **Prompt Management** - Versioned templates with hot reload support
-- 🚀 **Development Tools** - Built-in CLI with dev server and examples
+GAI is a comprehensive, production-ready framework for building AI-powered applications in Go. It provides a unified, type-safe interface for interacting with multiple AI providers while maintaining operational simplicity and excellent performance.
 
-## Installation
+Whether you're building a simple chatbot, a complex multi-agent system, or an enterprise-grade AI gateway, GAI provides the tools and abstractions you need to succeed.
+
+### Why GAI?
+
+- **🔄 Provider Agnostic**: Single interface for OpenAI, Anthropic, Google Gemini, Ollama, and OpenAI-compatible providers
+- **🛡️ Type Safety**: Full compile-time type checking with Go generics
+- **⚡ Performance**: Zero-allocation hot paths, efficient streaming
+- **🔧 Production Ready**: Built-in retries, rate limiting, observability, and comprehensive error handling
+- **🎯 Developer Experience**: Intuitive APIs, extensive documentation, and rich examples
+- **🌐 Multimodal**: Native support for text, images, audio, video, and files
+- **🔨 Tools**: Type-safe function calling with automatic JSON schema generation
+- **📝 Structured Output**: Get typed responses with automatic validation
+- **🎙️ Audio**: Built-in TTS and STT support with multiple providers
+- **🏗️ Gateway Ready**: Normalized events, idempotency, and stable error taxonomy for building AI gateways
+
+## ✨ Features
+
+### Core Capabilities
+- **Multi-Provider Support**: OpenAI, Anthropic, Google Gemini, Ollama, and any OpenAI-compatible API
+- **Streaming**: First-class SSE and NDJSON streaming with backpressure
+- **Tool Calling**: Type-safe function execution with automatic JSON Schema generation
+- **Structured Outputs**: Generate and validate typed JSON responses
+- **Multimodal Messages**: Mix text, images, audio, video, and files in conversations
+- **Long Context**: Support for up to 200K+ tokens with providers like Claude
+- **Vision**: Image analysis with GPT-4V, Claude 3, and Gemini
+
+### Production Features
+- **Middleware System**: Composable retry, rate limiting, and safety filters
+- **Error Taxonomy**: Unified error classification across all providers
+- **Observability**: OpenTelemetry integration for tracing and metrics
+- **Prompt Management**: Versioned templates with hot reload
+- **Idempotency**: Request-level and tool-level deduplication
+- **Gateway Features**: Normalized event streams for provider abstraction
+
+### Developer Tools
+- **CLI**: Built-in development server and testing tools
+- **Examples**: Comprehensive examples for all features
+- **Documentation**: Extensive guides and API reference
+- **Type Safety**: Compile-time checking with generics
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
 go get github.com/recera/gai
 ```
 
-## Quick Start
+**Requirements**: Go 1.22+ (for generics support)
+
+### Basic Usage
 
 ```go
 package main
@@ -41,14 +91,15 @@ import (
 )
 
 func main() {
-    // Create a provider
-    var provider core.Provider = openai.New(
+    // Create a provider (works with any supported provider)
+    provider := openai.New(
         openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+        openai.WithModel("gpt-4-turbo"),
     )
-
+    
     // Generate text
     ctx := context.Background()
-    result, err := provider.GenerateText(ctx, core.Request{
+    response, err := provider.GenerateText(ctx, core.Request{
         Messages: []core.Message{
             {
                 Role: core.User,
@@ -57,22 +108,32 @@ func main() {
                 },
             },
         },
-        MaxTokens: 200,
+        MaxTokens:   200,
+        Temperature: 0.7,
     })
+    
     if err != nil {
         log.Fatal(err)
     }
-
-    fmt.Println(result.Text)
+    
+    fmt.Println(response.Text)
+    fmt.Printf("Tokens used: %d\n", response.Usage.TotalTokens)
 }
 ```
 
-## Streaming Example
+### Streaming Example
 
 ```go
 // Stream responses for real-time output
 stream, err := provider.StreamText(ctx, core.Request{
-    Messages: messages,
+    Messages: []core.Message{
+        {
+            Role: core.User,
+            Parts: []core.Part{
+                core.Text{Text: "Write a story about AI"},
+            },
+        },
+    },
     Stream: true,
 })
 if err != nil {
@@ -80,162 +141,291 @@ if err != nil {
 }
 defer stream.Close()
 
+// Process events as they arrive
 for event := range stream.Events() {
     switch event.Type {
     case core.EventTextDelta:
         fmt.Print(event.TextDelta)
+    case core.EventToolCall:
+        fmt.Printf("\nCalling tool: %s\n", event.ToolName)
     case core.EventFinish:
-        fmt.Println("\n\nDone!")
+        fmt.Println("\n\nComplete!")
     }
 }
 ```
 
-## Structured Outputs
+### Structured Output with Type Safety
 
 ```go
-type Recipe struct {
-    Name        string   `json:"name"`
-    Ingredients []string `json:"ingredients"`
-    Steps       []string `json:"steps"`
+// Define your schema
+type Analysis struct {
+    Sentiment   string   `json:"sentiment" jsonschema:"enum=positive,enum=neutral,enum=negative"`
+    Score       float64  `json:"score" jsonschema:"minimum=0,maximum=1"`
+    Keywords    []string `json:"keywords"`
+    Summary     string   `json:"summary"`
 }
 
-result, err := provider.GenerateObject(ctx, core.Request{
+// Generate structured data
+result, err := provider.GenerateObject[Analysis](ctx, core.Request{
     Messages: []core.Message{
-        {Role: core.User, Parts: []core.Part{
-            core.Text{Text: "Give me a recipe for chocolate chip cookies"},
-        }},
+        {
+            Role: core.User,
+            Parts: []core.Part{
+                core.Text{Text: "Analyze this text: 'GAI makes AI integration in Go simple and powerful!'"},
+            },
+        },
     },
-}, Recipe{})
-if err != nil {
-    log.Fatal(err)
-}
+})
 
-recipe := result.Value.(*Recipe)
-fmt.Printf("Recipe: %s\n", recipe.Name)
+analysis := result.Value
+fmt.Printf("Sentiment: %s (%.2f)\n", analysis.Sentiment, analysis.Score)
+fmt.Printf("Keywords: %v\n", analysis.Keywords)
 ```
 
-## Tool Calling
+### Tool Calling
 
 ```go
+import "github.com/recera/gai/tools"
+
 // Define a typed tool
 type WeatherInput struct {
-    Location string `json:"location"`
+    Location string `json:"location" jsonschema:"required,description=City name"`
+    Unit     string `json:"unit,omitempty" jsonschema:"enum=celsius,enum=fahrenheit"`
 }
 
 type WeatherOutput struct {
     Temperature float64 `json:"temperature"`
     Conditions  string  `json:"conditions"`
+    Humidity    int     `json:"humidity"`
 }
 
+// Create the tool
 weatherTool := tools.New[WeatherInput, WeatherOutput](
     "get_weather",
     "Get current weather for a location",
     func(ctx context.Context, input WeatherInput, meta tools.Meta) (WeatherOutput, error) {
-        // Implementation here
+        // Your weather API implementation
         return WeatherOutput{
-            Temperature: 72.5,
+            Temperature: 22.5,
             Conditions:  "Sunny",
+            Humidity:    65,
         }, nil
     },
 )
 
-// Convert to core handles and use in request
-coreTools := tools.ToCoreHandles([]tools.Handle{weatherTool})
-result, err := provider.GenerateText(ctx, core.Request{
-    Messages: messages,
-    Tools:    coreTools,
+// Use with AI
+response, err := provider.GenerateText(ctx, core.Request{
+    Messages: []core.Message{
+        {
+            Role: core.User,
+            Parts: []core.Part{
+                core.Text{Text: "What's the weather in Tokyo?"},
+            },
+        },
+    },
+    Tools: []tools.Handle{weatherTool},
     ToolChoice: core.ToolAuto,
 })
 ```
 
-## Middleware
+## 🔌 Providers
 
-Apply production-ready middleware for retries and rate limiting:
+GAI supports multiple AI providers with a unified interface:
+
+| Provider | Models | Context | Streaming | Tools | Vision | Audio | Status |
+|----------|--------|---------|-----------|-------|--------|-------|--------|
+| **OpenAI** | GPT-4, GPT-3.5 | 128K | ✅ | ✅ | ✅ | ✅ | ✅ Production |
+| **Anthropic** | Claude 3 (Opus, Sonnet, Haiku) | 200K | ✅ | ✅ | ✅ | ❌ | ✅ Production |
+| **Google Gemini** | Gemini 1.5 Pro/Flash | 1M+ | ✅ | ✅ | ✅ | ✅ | ✅ Production |
+| **Ollama** | Llama, Mistral, etc. | Varies | ✅ | ✅ | ✅ | ❌ | ✅ Production |
+| **OpenAI Compatible** | Any compatible API | Varies | ✅ | ✅ | Varies | Varies | ✅ Production |
+
+### Provider Examples
+
+```go
+// OpenAI
+provider := openai.New(
+    openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+    openai.WithModel("gpt-4-turbo"),
+)
+
+// Anthropic
+provider := anthropic.New(
+    anthropic.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
+    anthropic.WithModel("claude-3-opus-20240229"),
+)
+
+// Google Gemini
+provider := gemini.New(
+    gemini.WithAPIKey(os.Getenv("GOOGLE_API_KEY")),
+    gemini.WithModel("gemini-1.5-pro"),
+)
+
+// Ollama (Local)
+provider := ollama.New(
+    ollama.WithBaseURL("http://localhost:11434"),
+    ollama.WithModel("llama3.2"),
+)
+
+// OpenAI Compatible (Groq, xAI, Together, etc.)
+provider := openai_compat.New(openai_compat.CompatOpts{
+    BaseURL: "https://api.groq.com/openai/v1",
+    APIKey:  os.Getenv("GROQ_API_KEY"),
+    DefaultModel: "llama-3.1-70b-versatile",
+})
+```
+
+## 🎵 Audio Support (TTS/STT)
+
+GAI includes comprehensive audio support through the media package:
+
+```go
+import "github.com/recera/gai/media"
+
+// Text-to-Speech
+tts := media.NewElevenLabs(
+    media.WithElevenLabsAPIKey(os.Getenv("ELEVENLABS_API_KEY")),
+)
+
+stream, err := tts.Synthesize(ctx, media.SpeechRequest{
+    Text:   "Hello from GAI!",
+    Voice:  "Rachel",
+    Format: media.FormatMP3,
+})
+
+// Speech-to-Text
+stt := media.NewWhisper(
+    media.WithWhisperAPIKey(os.Getenv("OPENAI_API_KEY")),
+)
+
+result, err := stt.Transcribe(ctx, media.TranscriptionRequest{
+    Audio: audioBlob,
+    Language: "en",
+})
+
+fmt.Println("Transcript:", result.Text)
+```
+
+## 🛡️ Production Features
+
+### Middleware
+
+Apply production-ready middleware for reliability:
 
 ```go
 import "github.com/recera/gai/middleware"
 
+// Chain middleware for production use
 provider = middleware.Chain(
     middleware.WithRetry(middleware.RetryOpts{
         MaxAttempts: 3,
         BaseDelay:   time.Second,
+        MaxDelay:    10 * time.Second,
         Jitter:      true,
     }),
     middleware.WithRateLimit(middleware.RateLimitOpts{
         RPS:   10,
         Burst: 20,
     }),
+    middleware.WithSafety(middleware.SafetyOpts{
+        MaxPromptLength: 10000,
+        BlockPatterns:   []string{"password", "credit card"},
+    }),
 )(provider)
 ```
 
-## Development Server
+### Observability
 
-The framework includes a development server for testing:
+Built-in OpenTelemetry support:
 
-```bash
-# Install the CLI
-go install ./cmd/ai
+```go
+import "github.com/recera/gai/obs"
 
-# Start the development server
-ai dev serve
+// Initialize observability
+shutdown, err := obs.Init(obs.Config{
+    ServiceName:    "my-ai-app",
+    ServiceVersion: "1.0.0",
+    Environment:    "production",
+})
+defer shutdown(context.Background())
 
-# Visit http://localhost:8080 for an interactive web interface
+// Traces and metrics are automatically collected
 ```
 
-The dev server provides:
-- Interactive web UI for testing
-- SSE streaming endpoint (`/api/chat`)
-- NDJSON streaming endpoint (`/api/chat/ndjson`)
-- Traditional REST endpoint (`/api/generate`)
-- Health check endpoint (`/api/health`)
+### Error Handling
 
-## Examples
+Unified error taxonomy across all providers:
 
-See the [examples](./examples) directory for comprehensive examples:
+```go
+response, err := provider.GenerateText(ctx, request)
+if err != nil {
+    switch {
+    case core.IsRateLimited(err):
+        // Handle rate limiting
+        time.Sleep(core.GetRetryAfter(err))
+        
+    case core.IsContextSizeExceeded(err):
+        // Reduce context size
+        request.Messages = truncateMessages(request.Messages)
+        
+    case core.IsAuth(err):
+        // Check API keys
+        return fmt.Errorf("authentication failed: %w", err)
+        
+    case core.IsTransient(err):
+        // Retry with backoff
+        return retryWithBackoff(request)
+        
+    default:
+        return fmt.Errorf("unexpected error: %w", err)
+    }
+}
+```
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the [docs](./docs) directory:
+
+- **[Getting Started](./docs/getting-started/)** - Installation, configuration, and quick start
+- **[Core Concepts](./docs/core-concepts/)** - Architecture, messages, streaming, and tools
+- **[Provider Guides](./docs/providers/)** - Detailed guides for each provider
+- **[Features](./docs/features/)** - Deep dives into specific features
+- **[Tutorials](./docs/tutorials/)** - Step-by-step guides for common use cases
+- **[API Reference](./docs/api-reference/)** - Complete API documentation
+- **[Deployment](./docs/deployment/)** - Production deployment guides
+- **[Troubleshooting](./docs/troubleshooting/)** - Common issues and solutions
+
+## 💡 Examples
+
+The [examples](./examples) directory contains runnable examples for all features:
 
 - **[hello-text](./examples/hello-text)** - Basic text generation
 - **[hello-stream](./examples/hello-stream)** - Streaming responses
-- **[hello-object](./examples/hello-object)** - Structured outputs
+- **[hello-object](./examples/hello-object)** - Structured outputs with type safety
 - **[hello-tool](./examples/hello-tool)** - Tool calling and multi-step workflows
+- **[hello-vision](./examples/hello-vision)** - Image analysis with vision models
+- **[hello-audio](./examples/hello-audio)** - Speech synthesis and recognition
+- **[multi-provider](./examples/multi-provider)** - Using multiple providers
+- **[chat-app](./examples/chat-app)** - Complete chat application
 
-## Architecture
+## 🛠️ Development
 
-The framework is organized into focused packages:
+### Prerequisites
 
-- `core` - Core types and interfaces
-- `providers/openai` - OpenAI provider implementation
-- `tools` - Tool definition and execution with JSON Schema
-- `stream` - Streaming utilities (SSE, NDJSON)
-- `prompts` - Prompt management and versioning
-- `middleware` - Retry, rate limiting, and safety
-- `obs` - Observability with OpenTelemetry
+- Go 1.22+ (required for generics)
+- Git
+- Make (optional, for convenience commands)
 
-## Current Implementation Status
-
-### ✅ Completed
-- Core framework with provider abstraction
-- OpenAI provider with full feature support
-- Type-safe tool calling with JSON Schema generation
-- Streaming support (SSE and NDJSON)
-- Structured output generation
-- Middleware (retry, rate limiting, safety)
-- Prompt management with versioning
-- Observability with OpenTelemetry
-- CLI with development server
-- Comprehensive examples
-
-### 🚧 In Progress
-- Anthropic provider
-- Google Gemini provider
-- Ollama provider
-- OpenAI-compatible adapter for Groq, xAI, etc.
-- Model routing and failover
-- MCP (Model Context Protocol) support
-- Audio/multimodal support
-
-## Development
+### Building from Source
 
 ```bash
+# Clone the repository
+git clone https://github.com/recera/gai.git
+cd gai
+
+# Install dependencies
+go mod download
+
 # Run tests
 go test ./...
 
@@ -247,26 +437,169 @@ go test -bench=. ./...
 
 # Build the CLI
 go build -o ai ./cmd/ai
+
+# Run the development server
+./ai dev serve
 ```
 
-## Documentation
+### Development Server
 
-Full documentation and API reference coming soon at pkg.go.dev.
+GAI includes a development server for testing:
 
-See the [examples](./examples) directory for detailed usage patterns.
+```bash
+# Install the CLI globally
+go install github.com/recera/gai/cmd/ai@latest
 
-## Contributing
+# Start the development server
+ai dev serve
 
-We welcome contributions! Please ensure:
-- All tests pass
-- Code follows Go idioms
-- New features include tests
-- Documentation is updated
+# The server provides:
+# - Interactive web UI: http://localhost:8080
+# - SSE streaming endpoint: /api/chat
+# - NDJSON streaming endpoint: /api/chat/ndjson
+# - REST endpoint: /api/generate
+# - Health check: /api/health
+```
 
-## License
+### Testing
+
+```bash
+# Run all tests
+make test
+
+# Run specific package tests
+go test ./core
+go test ./providers/openai
+go test ./tools
+
+# Run integration tests (requires API keys)
+OPENAI_API_KEY=sk-... go test -tags=integration ./providers/openai
+
+# Run benchmarks
+make bench
+
+# Check code coverage
+make coverage
+```
+
+## 🏗️ Architecture
+
+GAI is built on solid architectural principles:
+
+```
+┌─────────────────────────────────────────────────┐
+│                Your Application                  │
+└─────────────────────────────────────────────────┘
+                         │
+┌─────────────────────────────────────────────────┐
+│                  GAI Framework                   │
+├─────────────────────────────────────────────────┤
+│  Core Types │ Tools │ Streaming │ Middleware    │
+├─────────────────────────────────────────────────┤
+│              Provider Abstraction                │
+├─────────────────────────────────────────────────┤
+│ OpenAI │ Anthropic │ Gemini │ Ollama │ Others  │
+└─────────────────────────────────────────────────┘
+```
+
+### Package Structure
+
+- **`core`** - Core types, interfaces, and multi-step runner
+- **`providers`** - Provider implementations
+  - `openai` - OpenAI provider
+  - `anthropic` - Anthropic Claude provider
+  - `gemini` - Google Gemini provider
+  - `ollama` - Local model provider
+  - `openai_compat` - OpenAI-compatible adapter
+- **`tools`** - Tool system with JSON Schema generation
+- **`stream`** - Streaming utilities (SSE, NDJSON, normalization)
+- **`middleware`** - Retry, rate limiting, safety filters
+- **`prompts`** - Prompt template management
+- **`media`** - Audio support (TTS/STT)
+- **`obs`** - Observability with OpenTelemetry
+- **`cmd/ai`** - CLI and development server
+
+## 🚦 Implementation Status
+
+### ✅ Production Ready
+
+- Core framework with provider abstraction
+- OpenAI provider with full features
+- Anthropic Claude provider
+- Google Gemini provider with multimodal support
+- Ollama local model provider
+- OpenAI-compatible adapter (Groq, xAI, Together, etc.)
+- Type-safe tool calling with JSON Schema
+- Streaming (SSE and NDJSON)
+- Structured output generation
+- Middleware system
+- Prompt management
+- Audio support (TTS/STT)
+- Observability
+- Gateway architecture improvements
+- CLI with development server
+
+### 🚧 Roadmap
+
+- [ ] WebSocket streaming support
+- [ ] Model routing and automatic failover
+- [ ] MCP (Model Context Protocol) support
+- [ ] Embedding APIs
+- [ ] Fine-tuning management
+- [ ] Batch processing
+- [ ] Cost tracking and optimization
+- [ ] Playground UI improvements
+- [ ] Additional providers (Cohere, AI21, etc.)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+
+### How to Contribute
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Guidelines
+
+- Follow Go idioms and best practices
+- Add tests for new features
+- Update documentation
+- Ensure all tests pass
+- Use conventional commits
+
+## 📄 License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](./LICENSE) file for details.
 
-## Status
+## 🙏 Acknowledgments
 
-This project is in active development (v0.8.x). The core API is stabilizing, but some features are still being implemented. Production use is possible with the completed features.
+GAI stands on the shoulders of giants:
+
+- The Go team for an excellent language and toolchain
+- AI provider teams for their powerful models
+- The open-source community for inspiration and feedback
+- Contributors who have helped improve the framework
+
+## 📞 Support
+
+- 📖 [Documentation](./docs)
+- 💬 [Discussions](https://github.com/recera/gai/discussions)
+- 🐛 [Issue Tracker](https://github.com/recera/gai/issues)
+- 📧 [Email](mailto:support@recera.com)
+
+## 🌟 Star History
+
+If you find GAI useful, please consider giving it a star! It helps others discover the project.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=recera/gai&type=Date)](https://star-history.com/#recera/gai&Date)
+
+---
+
+<div align="center">
+  <p><strong>Build Amazing AI Applications with Go!</strong></p>
+  <p>Made with ❤️ by the GAI Team</p>
+</div>
