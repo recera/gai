@@ -1,4 +1,4 @@
-# GAI - Go AI Framework
+# GAI - Go AI Framework [Work in Progress]
 
 <div align="center">
   <h1>🚀 GAI</h1>
@@ -23,7 +23,7 @@
 
 ## 🎯 Overview
 
-GAI is a comprehensive, production-ready framework for building AI-powered applications in Go. It provides a unified, type-safe interface for interacting with multiple AI providers while maintaining operational simplicity and excellent performance.
+GAI is a comprehensive,framework for building AI-powered applications in Go. It provides a unified, type-safe interface for interacting with multiple AI providers while maintaining operational simplicity and excellent performance.
 
 Whether you're building a simple chatbot, a complex multi-agent system, or an enterprise-grade AI gateway, GAI provides the tools and abstractions you need to succeed.
 
@@ -32,7 +32,6 @@ Whether you're building a simple chatbot, a complex multi-agent system, or an en
 - **🔄 Provider Agnostic**: Single interface for OpenAI, Anthropic, Google Gemini, Ollama, Groq, and OpenAI-compatible providers
 - **🛡️ Type Safety**: Full compile-time type checking with Go generics
 - **⚡ Performance**: Zero-allocation hot paths, efficient streaming
-- **🔧 Production Ready**: Built-in retries, rate limiting, observability, and comprehensive error handling
 - **🎯 Developer Experience**: Intuitive APIs, extensive documentation, and rich examples
 - **🌐 Multimodal**: Native support for text, images, audio, video, and files
 - **🔨 Multi-Step Tools**: Type-safe function calling with sophisticated execution control

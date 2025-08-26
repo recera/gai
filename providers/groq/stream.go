@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/recera/gai/core"
+	"github.com/recera/gai/obs"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // StreamText streams text generation with events.
@@ -21,6 +23,21 @@ func (p *Provider) StreamText(ctx context.Context, req core.Request) (core.TextS
 	}
 
 	model := p.getModel(req)
+
+	// Use streaming GenAI observability wrapper
+	streamResult, err := obs.WithGenAIStreamingObservability(ctx, "groq", model, obs.GenAIOpStreamCompletion, req, func(ctx context.Context) (interface{}, error) {
+		return p.executeStreamText(ctx, req, model)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return streamResult.(core.TextStream), nil
+}
+
+// executeStreamText handles the actual streaming logic (extracted for observability)
+func (p *Provider) executeStreamText(ctx context.Context, req core.Request, model string) (core.TextStream, error) {
 	modelInfo := p.getModelInfo(model)
 
 	// Validate streaming support
@@ -49,6 +66,9 @@ func (p *Provider) StreamText(ctx context.Context, req core.Request) (core.TextS
 		return nil, p.parseError(resp)
 	}
 
+	// Get span from context for observability
+	span := trace.SpanFromContext(ctx)
+	
 	// Create and return the stream
 	stream := &groqTextStream{
 		provider: p,
@@ -56,6 +76,8 @@ func (p *Provider) StreamText(ctx context.Context, req core.Request) (core.TextS
 		tools:    req.Tools,
 		events:   make(chan core.Event, 100),
 		done:     make(chan struct{}),
+		span:     span,
+		system:   obs.GetProviderSystem("groq"),
 	}
 
 	// Start processing the stream
@@ -74,6 +96,8 @@ type groqTextStream struct {
 	mu       sync.Mutex
 	closed   bool
 	err      error
+	span     trace.Span  // For observability
+	system   string      // GenAI system identifier
 }
 
 // Events returns the channel of streaming events.
@@ -198,7 +222,14 @@ func (s *groqTextStream) processChunk(chunk streamChunk, currentToolCalls *[]too
 
 	// Handle text deltas
 	if delta.Content != nil && *delta.Content != "" {
+		chunkIndex := len(fullText.String()) / 50 // Approximate chunk index
 		fullText.WriteString(*delta.Content)
+		
+		// Record streaming chunk for observability
+		if s.span != nil {
+			obs.RecordStreamingChunk(s.span, *delta.Content, chunkIndex, s.system)
+		}
+		
 		s.sendEvent(core.Event{
 			Type:      core.EventTextDelta,
 			TextDelta: *delta.Content,
@@ -348,8 +379,41 @@ type messageDelta struct {
 
 // GenerateObject generates a structured object (not yet implemented for Groq).
 func (p *Provider) GenerateObject(ctx context.Context, req core.Request, schema any) (*core.ObjectResult[any], error) {
-	// For now, we'll implement this using JSON mode
 	model := p.getModel(req)
+
+	// Convert ObjectResult to TextResult for observability compatibility
+	textResult, err := obs.WithGenAIObservability(ctx, "groq", model, obs.GenAIOpObjectCompletion, req, func(ctx context.Context) (*core.TextResult, error) {
+		objectResult, err := p.executeGenerateObject(ctx, req, model, schema)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Convert ObjectResult to TextResult for observability
+		jsonBytes, _ := json.Marshal(objectResult.Value)
+		return &core.TextResult{
+			Text:  string(jsonBytes),
+			Usage: objectResult.Usage,
+		}, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert back to ObjectResult
+	var result interface{}
+	if err := json.Unmarshal([]byte(textResult.Text), &result); err != nil {
+		return nil, fmt.Errorf("parsing object result: %w", err)
+	}
+
+	return &core.ObjectResult[any]{
+		Value: result,
+		Usage: textResult.Usage,
+	}, nil
+}
+
+// executeGenerateObject handles the actual object generation logic (extracted for observability)
+func (p *Provider) executeGenerateObject(ctx context.Context, req core.Request, model string, schema any) (*core.ObjectResult[any], error) {
 	modelInfo := p.getModelInfo(model)
 
 	if !modelInfo.SupportsJSON {
@@ -411,5 +475,16 @@ func (p *Provider) GenerateObject(ctx context.Context, req core.Request, schema 
 
 // StreamObject streams generation of a structured object (placeholder implementation).
 func (p *Provider) StreamObject(ctx context.Context, req core.Request, schema any) (core.ObjectStream[any], error) {
-	return nil, fmt.Errorf("StreamObject not yet implemented for Groq provider")
+	model := p.getModel(req)
+
+	// Use streaming GenAI observability wrapper
+	streamResult, err := obs.WithGenAIStreamingObservability(ctx, "groq", model, obs.GenAIOpStreamObjectCompletion, req, func(ctx context.Context) (interface{}, error) {
+		return nil, fmt.Errorf("StreamObject not yet implemented for Groq provider - observability wrapper ready")
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return streamResult.(core.ObjectStream[any]), nil
 }

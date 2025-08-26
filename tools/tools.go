@@ -211,6 +211,10 @@ func (t *Tool[I, O]) Exec(ctx context.Context, raw json.RawMessage, meta Meta) (
 		err = fmt.Errorf("tool %s execution failed: %w", t.name, err)
 		obs.RecordError(span, err, "Tool execution failed")
 		obs.RecordToolResult(span, false, 0, time.Since(startTime))
+		
+		// Record tool content with error for Braintrust display
+		obs.RecordToolContent(span, t.name, raw, nil, err)
+		
 		return nil, err
 	}
 	
@@ -238,6 +242,9 @@ func (t *Tool[I, O]) Exec(ctx context.Context, raw json.RawMessage, meta Meta) (
 	
 	// Record successful execution
 	obs.RecordToolResult(span, true, outputSize, time.Since(startTime))
+	
+	// Record tool content for Braintrust display
+	obs.RecordToolContent(span, t.name, raw, output, nil)
 	
 	// Record metrics
 	obs.RecordToolExecution(ctx, t.name, true, time.Since(startTime))

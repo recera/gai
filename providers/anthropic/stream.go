@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/recera/gai/core"
+	"github.com/recera/gai/obs"
 )
 
 // textStream implements core.TextStream for Anthropic streaming responses.
@@ -41,6 +42,22 @@ type contentBlockAccumulator struct {
 
 // StreamText implements streaming text generation.
 func (p *Provider) StreamText(ctx context.Context, req core.Request) (core.TextStream, error) {
+	model := p.getModel(req)
+
+	// Use streaming GenAI observability wrapper
+	streamResult, err := obs.WithGenAIStreamingObservability(ctx, "anthropic", model, obs.GenAIOpStreamCompletion, req, func(ctx context.Context) (interface{}, error) {
+		return p.executeStreamText(ctx, req)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return streamResult.(core.TextStream), nil
+}
+
+// executeStreamText handles the actual streaming logic (extracted for observability)
+func (p *Provider) executeStreamText(ctx context.Context, req core.Request) (core.TextStream, error) {
 	// Convert request
 	apiReq, err := p.convertRequest(req)
 	if err != nil {
@@ -360,6 +377,22 @@ type objectStream struct {
 
 // StreamObject implements streaming generation of structured objects.
 func (p *Provider) StreamObject(ctx context.Context, req core.Request, schema any) (core.ObjectStream[any], error) {
+	model := p.getModel(req)
+
+	// Use streaming GenAI observability wrapper
+	streamResult, err := obs.WithGenAIStreamingObservability(ctx, "anthropic", model, obs.GenAIOpStreamObjectCompletion, req, func(ctx context.Context) (interface{}, error) {
+		return p.executeStreamObject(ctx, req, schema)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return streamResult.(core.ObjectStream[any]), nil
+}
+
+// executeStreamObject handles the actual streaming object logic (extracted for observability)
+func (p *Provider) executeStreamObject(ctx context.Context, req core.Request, schema any) (core.ObjectStream[any], error) {
 	// For Anthropic, we need to modify the request to include JSON formatting instructions
 	schemaJSON, err := json.Marshal(schema)
 	if err != nil {

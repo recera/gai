@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recera/gai/core"
+	"github.com/recera/gai/obs"
 )
 
 // GenerateText generates text with optional multi-step tool execution.
@@ -18,6 +19,15 @@ func (p *Provider) GenerateText(ctx context.Context, req core.Request) (*core.Te
 	}
 
 	model := p.getModel(req)
+
+	// Use comprehensive GenAI observability wrapper
+	return obs.WithGenAIObservability(ctx, "groq", model, obs.GenAIOpChatCompletion, req, func(ctx context.Context) (*core.TextResult, error) {
+		return p.executeGenerateText(ctx, req, model)
+	})
+}
+
+// executeGenerateText handles the actual text generation logic (extracted for observability)
+func (p *Provider) executeGenerateText(ctx context.Context, req core.Request, model string) (*core.TextResult, error) {
 	modelInfo := p.getModelInfo(model)
 
 	// Validate model capabilities

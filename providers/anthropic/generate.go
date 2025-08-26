@@ -8,11 +8,22 @@ import (
 	"time"
 
 	"github.com/recera/gai/core"
+	"github.com/recera/gai/obs"
 )
 
 // GenerateText implements the core.Provider interface for text generation.
 // It supports multi-step tool execution when tools are provided.
 func (p *Provider) GenerateText(ctx context.Context, req core.Request) (*core.TextResult, error) {
+	model := p.getModel(req)
+
+	// Use comprehensive GenAI observability wrapper
+	return obs.WithGenAIObservability(ctx, "anthropic", model, obs.GenAIOpChatCompletion, req, func(ctx context.Context) (*core.TextResult, error) {
+		return p.executeGenerateText(ctx, req)
+	})
+}
+
+// executeGenerateText handles the actual text generation logic (extracted for observability)
+func (p *Provider) executeGenerateText(ctx context.Context, req core.Request) (*core.TextResult, error) {
 	// If tools are provided and multi-step execution is needed, use multi-step runner
 	if len(req.Tools) > 0 && req.StopWhen != nil {
 		return p.generateWithTools(ctx, req)
@@ -347,6 +358,43 @@ func joinParts(parts []string, sep string) string {
 
 // GenerateObject generates a structured object conforming to the provided schema.
 func (p *Provider) GenerateObject(ctx context.Context, req core.Request, schema any) (*core.ObjectResult[any], error) {
+	model := p.getModel(req)
+
+	// Convert ObjectResult to TextResult for observability compatibility
+	textResult, err := obs.WithGenAIObservability(ctx, "anthropic", model, obs.GenAIOpObjectCompletion, req, func(ctx context.Context) (*core.TextResult, error) {
+		objectResult, err := p.executeGenerateObject(ctx, req, schema)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Convert ObjectResult to TextResult for observability
+		jsonBytes, _ := json.Marshal(objectResult.Value)
+		return &core.TextResult{
+			Text:  string(jsonBytes),
+			Usage: objectResult.Usage,
+			Raw:   objectResult.Raw,
+		}, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert back to ObjectResult
+	var result interface{}
+	if err := json.Unmarshal([]byte(textResult.Text), &result); err != nil {
+		return nil, fmt.Errorf("parsing object result: %w", err)
+	}
+
+	return &core.ObjectResult[any]{
+		Value: result,
+		Usage: textResult.Usage,
+		Raw:   textResult.Raw,
+	}, nil
+}
+
+// executeGenerateObject handles the actual object generation logic (extracted for observability)
+func (p *Provider) executeGenerateObject(ctx context.Context, req core.Request, schema any) (*core.ObjectResult[any], error) {
 	// For Anthropic, we need to include instructions in the system prompt or user message
 	// to produce JSON output, as they don't have a dedicated structured output mode like OpenAI
 	
