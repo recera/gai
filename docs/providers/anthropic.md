@@ -1,6 +1,6 @@
 # Anthropic Provider Guide
 
-This comprehensive guide covers everything you need to know about using Anthropic's Claude models with GAI, including Claude 3 Opus, Sonnet, and Haiku, along with advanced features like vision, function calling, and streaming.
+This comprehensive guide covers everything you need to know about using Anthropic's Claude models with GAI, including the latest Claude Sonnet 4, Claude 3.5 models, and advanced features like vision, function calling, structured outputs, and streaming.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -10,40 +10,44 @@ This comprehensive guide covers everything you need to know about using Anthropi
 - [Basic Usage](#basic-usage)
 - [Streaming](#streaming)
 - [Function Calling](#function-calling)
+- [Structured Outputs](#structured-outputs)
 - [Vision Capabilities](#vision-capabilities)
 - [System Prompts](#system-prompts)
 - [Advanced Features](#advanced-features)
 - [Error Handling](#error-handling)
 - [Best Practices](#best-practices)
 - [Cost Optimization](#cost-optimization)
+- [Performance Optimization](#performance-optimization)
 - [Migration from OpenAI](#migration-from-openai)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-The Anthropic provider gives you access to the Claude family of models, known for:
-- **Claude 3 Opus**: Most capable model for complex tasks
-- **Claude 3 Sonnet**: Balanced performance and cost
-- **Claude 3 Haiku**: Fast and affordable
-- **Claude 2.1**: Previous generation with 200K context
-- **Claude Instant**: Fastest response times
+The Anthropic provider gives you access to the Claude family of models, known for exceptional reasoning, safety, and performance:
+- **Claude Sonnet 4**: Latest and most advanced model (January 2025)
+- **Claude 3.5 Haiku**: Fast and efficient with multimodal capabilities
+- **Claude 3.5 Sonnet**: Balanced performance with advanced reasoning
+- **Claude 3 Opus**: Previous generation flagship model
+- **Constitutional AI**: Built-in safety and alignment
 
 ### Key Features
-- ✅ 200K+ token context windows
-- ✅ Advanced reasoning and analysis
-- ✅ Vision capabilities (Claude 3)
-- ✅ Function calling
-- ✅ Streaming responses
-- ✅ Constitutional AI for safety
-- ✅ Strong coding capabilities
-- ✅ Multi-language support
+- ✅ **Latest Models**: Claude Sonnet 4 with cutting-edge capabilities
+- ✅ **Large Context**: Up to 200K tokens (500+ pages of text)
+- ✅ **Advanced Reasoning**: Industry-leading analytical capabilities
+- ✅ **Vision Capabilities**: Sophisticated image understanding
+- ✅ **Tool Calling**: Function calling with parallel execution
+- ✅ **Structured Outputs**: JSON generation with schema validation
+- ✅ **Streaming**: Real-time response streaming
+- ✅ **Constitutional AI**: Built-in safety and ethical reasoning
+- ✅ **Multimodal**: Text, images, and document processing
 
 ### Anthropic's Unique Strengths
-- **Helpful, Harmless, and Honest**: Built with constitutional AI
-- **Long Context**: Up to 200K tokens (500+ pages)
-- **Nuanced Understanding**: Excellent at complex instructions
-- **Safety-First**: Reduced hallucinations and harmful outputs
-- **Research Quality**: Strong analytical and writing capabilities
+- **Constitutional AI**: Inherently safer with reduced harmful outputs
+- **Reasoning Excellence**: Superior performance on complex analytical tasks
+- **Long Context Mastery**: Industry-leading long document understanding
+- **Nuanced Communication**: Exceptional at following complex instructions
+- **Research Quality**: Academic-level analysis and writing capabilities
+- **Safety-First Design**: Reduced hallucinations and biased outputs
 
 ## Installation & Setup
 
@@ -177,36 +181,36 @@ func getEnvOrDefault(key, defaultValue string) string {
 
 ## Supported Models
 
-### Claude 3 Family (Latest)
+### Latest Models (2025)
 
 ```go
-// Claude 3 Opus - Most capable
+// Claude Sonnet 4 - Latest and most advanced (default)
 provider := anthropic.New(
-    anthropic.WithModel("claude-3-opus-20240229"),
+    anthropic.WithModel("claude-sonnet-4-20250514"),
 )
 
-// Claude 3 Sonnet - Balanced
+// Claude 3.5 Haiku - Fast and efficient
 provider := anthropic.New(
-    anthropic.WithModel("claude-3-sonnet-20240229"),
+    anthropic.WithModel("claude-3-5-haiku-20241022"),
 )
 
-// Claude 3 Haiku - Fast & affordable
+// Claude 3.5 Sonnet - Advanced reasoning
 provider := anthropic.New(
-    anthropic.WithModel("claude-3-haiku-20240307"),
+    anthropic.WithModel("claude-3-5-sonnet-20241022"),
 )
 ```
 
 ### Previous Generation
 
 ```go
-// Claude 2.1 - 200K context
+// Claude 3 Opus - Previous flagship
 provider := anthropic.New(
-    anthropic.WithModel("claude-2.1"),
+    anthropic.WithModel("claude-3-opus-20240229"),
 )
 
-// Claude Instant - Fastest
+// Claude 2.1 - Legacy model
 provider := anthropic.New(
-    anthropic.WithModel("claude-instant-1.2"),
+    anthropic.WithModel("claude-2.1"),
 )
 ```
 
@@ -214,11 +218,13 @@ provider := anthropic.New(
 
 | Model | Context Window | Strengths | Best For | Speed | Cost |
 |-------|---------------|-----------|----------|-------|------|
-| Claude 3 Opus | 200K | Most capable, best reasoning | Complex analysis, research | Slower | $$$$$ |
-| Claude 3 Sonnet | 200K | Balanced performance | General use, coding | Medium | $$$ |
-| Claude 3 Haiku | 200K | Fast, efficient | Quick tasks, high volume | Fast | $ |
-| Claude 2.1 | 200K | Reliable, proven | Production systems | Medium | $$ |
-| Claude Instant | 100K | Very fast | Real-time apps | Fastest | $ |
+| Claude Sonnet 4 | 200K | Latest, most capable | All advanced tasks | Medium | $$$ |
+| Claude 3.5 Haiku | 200K | Fast, multimodal | Quick tasks, real-time | Fast | $ |
+| Claude 3.5 Sonnet | 200K | Advanced reasoning | Complex analysis | Medium | $$$ |
+| Claude 3 Opus | 200K | Strong reasoning | Legacy complex tasks | Slower | $$$$ |
+| Claude 2.1 | 200K | Reliable baseline | Basic production | Medium | $$ |
+
+**Recommendation**: Use Claude Sonnet 4 for all new projects as it offers the best balance of capability, speed, and cost.
 
 ## Basic Usage
 
@@ -556,6 +562,78 @@ func toolCallingExample(provider *anthropic.Provider) {
 }
 ```
 
+### Multi-Step Tool Execution
+
+```go
+func multiStepWorkflow(provider *anthropic.Provider) {
+    // Create tools for a complex research workflow
+    tools := []tools.Handle{
+        createWebSearchTool(),
+        createDocumentReaderTool(),
+        createDataAnalysisTool(),
+        createVisualizationTool(),
+        createReportWriterTool(),
+        createEmailTool(),
+    }
+    
+    ctx := context.Background()
+    response, err := provider.GenerateText(ctx, core.Request{
+        Messages: []core.Message{
+            {
+                Role: core.System,
+                Parts: []core.Part{
+                    core.Text{Text: "You are a senior research analyst. Execute complex workflows step by step, using tools as needed to gather information, analyze data, and produce comprehensive reports."},
+                },
+            },
+            {
+                Role: core.User,
+                Parts: []core.Part{
+                    core.Text{Text: "Research the latest developments in quantum computing, analyze market trends, create visualizations of the competitive landscape, write a comprehensive strategic report, and email it to the executive team."},
+                },
+            },
+        },
+        Tools:      tools,
+        ToolChoice: core.ToolAuto,
+        MaxTokens:  3000,
+        
+        // Control multi-step execution with sophisticated stopping conditions
+        StopWhen: core.CombineConditions(
+            core.MaxSteps(15),
+            core.NoMoreTools(),
+            core.UntilToolSeen("email"),
+        ),
+    })
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Println("Multi-step Research Workflow Complete:")
+    fmt.Println(response.Text)
+    
+    // Show detailed execution steps
+    for i, step := range response.Steps {
+        fmt.Printf("\n--- Step %d ---\n", i+1)
+        
+        // Show tool calls
+        for _, call := range step.ToolCalls {
+            fmt.Printf("🔧 Tool: %s\n", call.Name)
+            fmt.Printf("📥 Input: %s\n", string(call.Input))
+        }
+        
+        // Show tool results
+        for _, result := range step.ToolResults {
+            fmt.Printf("📤 Result: %s\n", string(result.Result)[:100] + "...") // Truncate for display
+        }
+        
+        // Show Claude's reasoning
+        if step.Text != "" {
+            fmt.Printf("🤔 Claude's Analysis: %s\n", step.Text)
+        }
+    }
+}
+```
+
 ### Complex Multi-Tool Workflow
 
 ```go
@@ -595,6 +673,200 @@ func complexToolWorkflow(provider *anthropic.Provider) {
     
     fmt.Println("Analysis Complete:")
     fmt.Println(response.Text)
+}
+```
+
+## Structured Outputs
+
+Claude excels at generating structured data and JSON objects with precise schema adherence.
+
+### Simple JSON Generation
+
+```go
+type BlogPost struct {
+    Title      string   `json:"title"`
+    Author     string   `json:"author"`
+    Content    string   `json:"content"`
+    Tags       []string `json:"tags"`
+    Category   string   `json:"category"`
+    WordCount  int      `json:"word_count"`
+    SEOScore   float64  `json:"seo_score"`
+}
+
+func structuredOutput(provider *anthropic.Provider) {
+    ctx := context.Background()
+    
+    // Define the schema
+    schema := map[string]interface{}{
+        "type": "object",
+        "properties": map[string]interface{}{
+            "title":      map[string]string{"type": "string"},
+            "author":     map[string]string{"type": "string"},
+            "content":    map[string]string{"type": "string"},
+            "tags": map[string]interface{}{
+                "type": "array",
+                "items": map[string]string{"type": "string"},
+            },
+            "category":   map[string]string{"type": "string"},
+            "word_count": map[string]string{"type": "integer"},
+            "seo_score":  map[string]string{"type": "number"},
+        },
+        "required": []string{"title", "author", "content", "category"},
+    }
+    
+    result, err := provider.GenerateObject(ctx, core.Request{
+        Messages: []core.Message{
+            {
+                Role: core.System,
+                Parts: []core.Part{
+                    core.Text{Text: "Generate a comprehensive blog post structure based on the user's topic."},
+                },
+            },
+            {
+                Role: core.User,
+                Parts: []core.Part{
+                    core.Text{Text: "Create a blog post about sustainable energy solutions."},
+                },
+            },
+        },
+        MaxTokens: 800,
+    }, schema)
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    blogPost := result.Value.(map[string]interface{})
+    
+    fmt.Printf("Generated Blog Post:\n")
+    fmt.Printf("Title: %s\n", blogPost["title"])
+    fmt.Printf("Author: %s\n", blogPost["author"])
+    fmt.Printf("Category: %s\n", blogPost["category"])
+    fmt.Printf("Tags: %v\n", blogPost["tags"])
+    fmt.Printf("SEO Score: %.2f\n", blogPost["seo_score"])
+    fmt.Printf("Content: %.200s...\n", blogPost["content"])
+}
+```
+
+### Complex Nested Structures
+
+```go
+type ResearchAnalysis struct {
+    Title       string           `json:"title"`
+    Executive   ExecutiveSummary `json:"executive_summary"`
+    Methodology string           `json:"methodology"`
+    Findings    []Finding        `json:"findings"`
+    Conclusions []string         `json:"conclusions"`
+    References  []Reference      `json:"references"`
+    Metrics     AnalysisMetrics  `json:"metrics"`
+}
+
+type ExecutiveSummary struct {
+    Overview    string `json:"overview"`
+    KeyPoints   []string `json:"key_points"`
+    Recommendation string `json:"recommendation"`
+}
+
+type Finding struct {
+    Category    string  `json:"category"`
+    Description string  `json:"description"`
+    Significance string `json:"significance"`
+    Evidence    []string `json:"evidence"`
+    Confidence  float64 `json:"confidence_score"`
+}
+
+type Reference struct {
+    Type   string `json:"type"`
+    Title  string `json:"title"`
+    Author string `json:"author"`
+    Year   int    `json:"year"`
+    URL    string `json:"url,omitempty"`
+}
+
+type AnalysisMetrics struct {
+    QualityScore     float64 `json:"quality_score"`
+    ReliabilityScore float64 `json:"reliability_score"`
+    BiasScore        float64 `json:"bias_score"`
+    CompletenessScore float64 `json:"completeness_score"`
+}
+
+func complexStructuredAnalysis(provider *anthropic.Provider) {
+    ctx := context.Background()
+    
+    result, err := provider.GenerateObject(ctx, core.Request{
+        Messages: []core.Message{
+            {
+                Role: core.System,
+                Parts: []core.Part{
+                    core.Text{Text: `You are a research analyst. Generate a comprehensive research analysis with proper structure, evidence, and academic rigor. Include confidence scores, quality metrics, and proper citations.`},
+                },
+            },
+            {
+                Role: core.User,
+                Parts: []core.Part{
+                    core.Text{Text: "Analyze the impact of artificial intelligence on job markets, including both displacement and creation of new roles."},
+                },
+            },
+        },
+        MaxTokens: 2000,
+        Temperature: 0.3, // Lower temperature for structured analysis
+    }, ResearchAnalysis{})
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    analysis := result.Value.(map[string]interface{})
+    
+    // Pretty print the structured analysis
+    jsonBytes, _ := json.MarshalIndent(analysis, "", "  ")
+    fmt.Println("Research Analysis:")
+    fmt.Println(string(jsonBytes))
+}
+```
+
+### Streaming Structured Output
+
+```go
+func streamingStructuredOutput(provider *anthropic.Provider) {
+    ctx := context.Background()
+    
+    stream, err := provider.StreamObject(ctx, core.Request{
+        Messages: []core.Message{
+            {
+                Role: core.User,
+                Parts: []core.Part{
+                    core.Text{Text: "Generate a detailed project plan for developing a mobile app."},
+                },
+            },
+        },
+    }, BlogPost{})
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer stream.Close()
+    
+    fmt.Println("Streaming structured output:")
+    
+    for event := range stream.Events() {
+        switch event.Type {
+        case core.EventTextDelta:
+            fmt.Print(event.TextDelta)
+        case core.EventFinish:
+            fmt.Println("\n\nParsing final structured object...")
+            
+            finalObj, err := stream.Final()
+            if err != nil {
+                fmt.Printf("Parse error: %v\n", err)
+                return
+            }
+            
+            fmt.Printf("Final structured result: %+v\n", *finalObj)
+        case core.EventError:
+            fmt.Printf("Stream error: %v\n", event.Err)
+        }
+    }
 }
 ```
 

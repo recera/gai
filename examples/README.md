@@ -6,11 +6,13 @@ This directory contains comprehensive examples demonstrating the capabilities of
 
 Before running these examples, ensure you have:
 
-1. **Go 1.22+** installed
+1. **Go 1.23+** installed (required for generics and latest language features)
 2. **API Keys** for the providers you want to use:
    - OpenAI: Set `OPENAI_API_KEY` environment variable
-   - Anthropic: Set `ANTHROPIC_API_KEY` environment variable (coming soon)
-   - Gemini: Set `GOOGLE_API_KEY` environment variable (coming soon)
+   - Anthropic: Set `ANTHROPIC_API_KEY` environment variable
+   - Google Gemini: Set `GOOGLE_API_KEY` environment variable
+   - Groq: Set `GROQ_API_KEY` environment variable
+   - Ollama: No API key needed for local deployment
 
 ## Examples Overview
 
@@ -72,6 +74,82 @@ cd hello-tool
 go run main.go
 ```
 
+### 5. advanced-workflows
+**Complex Multi-Step Workflows**
+
+Demonstrates sophisticated workflow patterns:
+- Multi-provider comparison
+- Research pipeline coordination
+- Advanced stop conditions
+- Streaming multi-step execution
+- Production-ready patterns
+
+```bash
+cd advanced-workflows
+go run main.go
+```
+
+### 6. observability
+**Comprehensive Observability**
+
+Showcases monitoring and telemetry:
+- OpenTelemetry integration
+- Distributed tracing
+- Metrics collection
+- Usage accounting and cost estimation
+- Error tracking and performance monitoring
+
+```bash
+cd observability
+go run main.go
+```
+
+### 7. Provider-Specific Examples
+
+#### ollama/
+**Local Model Deployment**
+
+Demonstrates Ollama provider capabilities:
+- Local model management
+- Multimodal concepts
+- Concurrent request handling
+- Provider-specific options
+- Structured output with local models
+
+```bash
+cd ollama
+go run main.go
+```
+
+#### openai/
+**OpenAI Provider Focus**
+
+Focused OpenAI implementation:
+- Latest model capabilities
+- Observability integration
+- Advanced tool calling patterns
+- Cost tracking and optimization
+
+```bash
+cd openai
+go run main.go
+```
+
+### 8. prompts_demo
+**Template Management System**
+
+Demonstrates the prompts package:
+- Versioned template management
+- Development overrides
+- Template helpers and functions
+- Observability integration
+- Production deployment patterns
+
+```bash
+cd prompts_demo
+go run main.go
+```
+
 ## Quick Start
 
 1. **Clone the repository:**
@@ -80,14 +158,33 @@ git clone https://github.com/recera/gai.git
 cd gai/examples
 ```
 
-2. **Set your API key:**
+2. **Set your API keys (choose providers you want to test):**
 ```bash
+# Required for most examples
 export OPENAI_API_KEY="your-api-key-here"
+
+# Optional for additional providers
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export GOOGLE_API_KEY="your-gemini-key"
+export GROQ_API_KEY="your-groq-key"
+
+# For local deployment (no API key needed)
+# ollama serve  # Start Ollama server
+# ollama pull llama3.2  # Pull a model
 ```
 
 3. **Run an example:**
 ```bash
+# Start with basic text generation
 cd hello-text
+go run main.go
+
+# Or try advanced workflows
+cd advanced-workflows
+go run main.go
+
+# Or test local deployment
+cd ollama
 go run main.go
 ```
 
@@ -99,13 +196,17 @@ go run main.go
 - ✅ **Middleware**: Automatic retry and rate limiting
 - ✅ **Error Handling**: Comprehensive error classification
 - ✅ **Context Support**: Proper cancellation and timeouts
+- ✅ **Local Deployment**: Ollama integration for on-premises models
 
 ### Advanced Features
 - ✅ **Streaming**: Real-time response streaming with SSE/NDJSON
-- ✅ **Structured Outputs**: Type-safe JSON generation
-- ✅ **Tool Calling**: Typed tools with automatic execution
-- ✅ **Multi-Step Workflows**: Complex agent behaviors
-- ✅ **Observability**: Token usage tracking
+- ✅ **Structured Outputs**: Type-safe JSON generation with schema validation
+- ✅ **Tool Calling**: Typed tools with automatic execution and parallel processing
+- ✅ **Multi-Step Workflows**: Complex agent behaviors with stop conditions
+- ✅ **Observability**: OpenTelemetry tracing, metrics, and cost tracking
+- ✅ **Template Management**: Versioned prompts with override support
+- ✅ **Multi-Provider**: Compare and orchestrate across different providers
+- ✅ **Production Patterns**: Error recovery, circuit breakers, and monitoring
 
 ## Example Patterns
 
@@ -219,18 +320,32 @@ if err != nil {
 
 1. **"OPENAI_API_KEY not set"**
    - Solution: Export your API key: `export OPENAI_API_KEY="sk-..."`
+   - Each provider requires its own API key
 
 2. **"context deadline exceeded"**
    - Solution: Increase timeout in context creation
    - Check network connectivity
+   - For Ollama: Ensure `ollama serve` is running
 
 3. **"rate limited"**
    - Solution: Middleware automatically handles retries
    - Adjust rate limit configuration if needed
+   - Try different providers with higher limits
 
 4. **"model not found"**
    - Solution: Ensure you're using a valid model name
+   - For Ollama: Run `ollama pull <model-name>` first
    - Check provider documentation for available models
+
+5. **"Ollama connection refused"**
+   - Solution: Start Ollama server: `ollama serve`
+   - Check if port 11434 is available
+   - Verify Ollama installation
+
+6. **"tool execution failed"**
+   - Solution: Check tool input/output schema matching
+   - Verify tool execution logic
+   - Enable debug logging for detailed error info
 
 ## Contributing
 

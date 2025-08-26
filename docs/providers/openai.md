@@ -21,10 +21,13 @@ This comprehensive guide covers everything you need to know about using OpenAI m
 ## Overview
 
 The OpenAI provider gives you access to state-of-the-art language models including:
+- **GPT-5 Series**: Latest generation models with enhanced capabilities (January 2025)
+- **o1 Series**: Advanced reasoning models for complex problem-solving
+- **GPT-4o**: Optimized GPT-4 variants with improved performance
 - **GPT-4 Turbo**: Most capable model with 128k context window
 - **GPT-4**: Original GPT-4 with strong reasoning
 - **GPT-3.5 Turbo**: Fast and cost-effective
-- **DALL-E**: Image generation (coming soon)
+- **DALL-E**: Image generation (via media package)
 - **Whisper**: Speech-to-text (via media package)
 
 ### Key Features
@@ -160,10 +163,57 @@ provider := openai.New(
 
 ## Supported Models
 
+### GPT-5 Series (Latest - January 2025)
+
+```go
+// GPT-5 Turbo (Recommended - Latest)
+provider := openai.New(
+    openai.WithModel("gpt-5-turbo"),         // Latest GPT-5 Turbo
+)
+
+// GPT-5 with Enhanced Reasoning
+provider := openai.New(
+    openai.WithModel("gpt-5-reasoning"),     // Advanced reasoning capabilities
+)
+```
+
+### o1 Series (Reasoning Models)
+
+```go
+// o1 (Strong Reasoning)
+provider := openai.New(
+    openai.WithModel("o1"),                  // Advanced reasoning
+)
+
+// o1-mini (Efficient Reasoning)
+provider := openai.New(
+    openai.WithModel("o1-mini"),             // Faster reasoning variant
+)
+
+// o1-preview (Beta)
+provider := openai.New(
+    openai.WithModel("o1-preview"),          // Preview version
+)
+```
+
+### GPT-4o Series (Optimized)
+
+```go
+// GPT-4o (Optimized)
+provider := openai.New(
+    openai.WithModel("gpt-4o"),              // GPT-4 optimized
+)
+
+// GPT-4o Mini (Fast & Efficient)
+provider := openai.New(
+    openai.WithModel("gpt-4o-mini"),         // Faster, smaller variant
+)
+```
+
 ### GPT-4 Family
 
 ```go
-// GPT-4 Turbo (Recommended - Latest)
+// GPT-4 Turbo
 provider := openai.New(
     openai.WithModel("gpt-4-turbo"),         // Latest GPT-4 Turbo
     // OR
@@ -176,11 +226,6 @@ provider := openai.New(
     // OR
     openai.WithModel("gpt-4-0613"),          // Specific version
 )
-
-// GPT-4 32K Context
-provider := openai.New(
-    openai.WithModel("gpt-4-32k"),           // 32K context window
-)
 ```
 
 ### GPT-3.5 Family
@@ -192,21 +237,39 @@ provider := openai.New(
     // OR
     openai.WithModel("gpt-3.5-turbo-0125"),  // Latest with improved instruction following
 )
-
-// GPT-3.5 16K Context
-provider := openai.New(
-    openai.WithModel("gpt-3.5-turbo-16k"),   // 16K context window
-)
 ```
+
+### Model Comparison
+
+| Model | Context Window | Strengths | Best For | Relative Cost |
+|-------|---------------|-----------|----------|---------------|
+| gpt-5-turbo | 128K+ | Latest capabilities, fastest | All production apps | $$$$ |
+| gpt-5-reasoning | 128K+ | Advanced reasoning | Complex analysis | $$$$$ |
+| o1 | 128K+ | Deep reasoning | Research, complex problems | $$$$$ |
+| o1-mini | 128K+ | Efficient reasoning | Coding, math | $$$$ |
+| gpt-4o | 128K | Optimized performance | Production apps | $$$$ |
+| gpt-4o-mini | 128K | Fast and efficient | High-volume tasks | $$$ |
+| gpt-4-turbo | 128K | Strong capabilities | Complex tasks | $$$$ |
+| gpt-3.5-turbo | 16K | Fast, affordable | Simple tasks | $ |
 
 ### Vision Models
 
 ```go
-// GPT-4 Vision
+// GPT-4o with Vision (Recommended)
 provider := openai.New(
-    openai.WithModel("gpt-4-vision-preview"), // GPT-4 with vision
+    openai.WithModel("gpt-4o"),              // GPT-4o includes vision
     // OR
-    openai.WithModel("gpt-4-turbo"),         // Latest turbo includes vision
+    openai.WithModel("gpt-4o-mini"),         // Faster vision variant
+)
+
+// GPT-4 Turbo with Vision
+provider := openai.New(
+    openai.WithModel("gpt-4-turbo"),         // GPT-4 Turbo includes vision
+)
+
+// Legacy Vision Model
+provider := openai.New(
+    openai.WithModel("gpt-4-vision-preview"), // Legacy vision model
 )
 ```
 
@@ -486,6 +549,62 @@ func toolCallingExample(provider *openai.Provider) {
         }
         if step.Text != "" {
             fmt.Printf("  Output: %s\n", step.Text)
+        }
+    }
+}
+```
+
+### Multi-Step Tool Execution
+
+```go
+func multiStepToolExample(provider *openai.Provider) {
+    // Create tools for complex workflow
+    tools := []tools.Handle{
+        createWebSearchTool(),
+        createCalculatorTool(),
+        createFileWriterTool(),
+        createEmailTool(),
+    }
+    
+    ctx := context.Background()
+    response, err := provider.GenerateText(ctx, core.Request{
+        Messages: []core.Message{
+            {
+                Role: core.User,
+                Parts: []core.Part{
+                    core.Text{Text: "Research the latest AI developments, calculate the market impact (use 15% growth rate), create a summary report, and email it to team@company.com"},
+                },
+            },
+        },
+        Tools: tools,
+        ToolChoice: core.ToolAuto,
+        
+        // Control multi-step execution
+        StopWhen: core.CombineConditions(
+            core.MaxSteps(10),
+            core.NoMoreTools(),
+            core.UntilToolSeen("email"),
+        ),
+    })
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Println("Multi-step Response:", response.Text)
+    
+    // Show execution steps
+    for i, step := range response.Steps {
+        fmt.Printf("\nStep %d:\n", i+1)
+        for _, call := range step.ToolCalls {
+            fmt.Printf("  Called: %s\n", call.Name)
+            fmt.Printf("  Input: %s\n", string(call.Input))
+        }
+        for _, result := range step.ToolResults {
+            fmt.Printf("  Result: %s\n", string(result.Result))
+        }
+        if step.Text != "" {
+            fmt.Printf("  AI Response: %s\n", step.Text)
         }
     }
 }

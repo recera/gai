@@ -18,6 +18,9 @@ import (
 	"github.com/recera/gai/tools"
 )
 
+// Set environment variable:
+// export OPENAI_API_KEY="your-api-key-here"
+
 // Define input/output types for our tools
 
 // WeatherInput represents weather query parameters
@@ -149,7 +152,7 @@ func simpleToolExample(ctx context.Context, provider core.Provider) {
 		"Get current weather for a location",
 		func(ctx context.Context, input WeatherInput, meta tools.Meta) (WeatherOutput, error) {
 			fmt.Printf("🔧 Tool called: get_weather(%s)\n", input.Location)
-			
+
 			// Simulate weather data (in production, call a real API)
 			conditions := []string{"Sunny", "Cloudy", "Rainy", "Partly Cloudy"}
 			return WeatherOutput{
@@ -214,11 +217,11 @@ func multipleToolsExample(ctx context.Context, provider core.Provider) {
 		"Evaluate mathematical expressions",
 		func(ctx context.Context, input CalculatorInput, meta tools.Meta) (CalculatorOutput, error) {
 			fmt.Printf("🔧 Tool called: calculator(%s)\n", input.Expression)
-			
+
 			// Simple evaluation (in production, use a proper expression parser)
 			result := 0.0
 			expr := strings.TrimSpace(input.Expression)
-			
+
 			// Handle basic operations
 			if strings.Contains(expr, "+") {
 				parts := strings.Split(expr, "+")
@@ -242,7 +245,7 @@ func multipleToolsExample(ctx context.Context, provider core.Provider) {
 				// Default calculation
 				result = 42
 			}
-			
+
 			return CalculatorOutput{
 				Expression: input.Expression,
 				Result:     result,
@@ -255,12 +258,12 @@ func multipleToolsExample(ctx context.Context, provider core.Provider) {
 		"Search for information on the web",
 		func(ctx context.Context, input SearchInput, meta tools.Meta) (SearchOutput, error) {
 			fmt.Printf("🔧 Tool called: search(%s)\n", input.Query)
-			
+
 			limit := input.Limit
 			if limit == 0 {
 				limit = 3
 			}
-			
+
 			// Simulate search results
 			results := []SearchResult{}
 			for i := 0; i < limit && i < 3; i++ {
@@ -270,7 +273,7 @@ func multipleToolsExample(ctx context.Context, provider core.Provider) {
 					URL:     fmt.Sprintf("https://example.com/result%d", i+1),
 				})
 			}
-			
+
 			return SearchOutput{
 				Query:   input.Query,
 				Results: results,
@@ -314,13 +317,13 @@ func multiStepExample(ctx context.Context, provider core.Provider) {
 		"Query the customer database",
 		func(ctx context.Context, input DatabaseInput, meta tools.Meta) (DatabaseOutput, error) {
 			fmt.Printf("🔧 Tool called: database(table=%s, query=%s)\n", input.Table, input.Query)
-			
+
 			// Simulate database operations
 			output := DatabaseOutput{
 				Table: input.Table,
 				Query: input.Query,
 			}
-			
+
 			switch input.Query {
 			case "count":
 				output.Count = 1247
@@ -335,7 +338,7 @@ func multiStepExample(ctx context.Context, provider core.Provider) {
 					{"id": 2, "name": "Bob Smith", "email": "bob@example.com", "status": "pending"},
 				}
 			}
-			
+
 			return output, nil
 		},
 	)
@@ -345,7 +348,7 @@ func multiStepExample(ctx context.Context, provider core.Provider) {
 		"Send an email to a recipient",
 		func(ctx context.Context, input EmailInput, meta tools.Meta) (EmailOutput, error) {
 			fmt.Printf("🔧 Tool called: send_email(to=%s, subject=%s)\n", input.To, input.Subject)
-			
+
 			// Simulate email sending
 			return EmailOutput{
 				Success:   true,
@@ -399,16 +402,16 @@ func multiStepExample(ctx context.Context, provider core.Provider) {
 		if step.Text != "" {
 			fmt.Printf("Reasoning: %s\n", step.Text)
 		}
-		
+
 		for j, call := range step.ToolCalls {
 			fmt.Printf("\nTool Call %d.%d: %s\n", i+1, j+1, call.Name)
-			
+
 			var prettyInput map[string]interface{}
 			json.Unmarshal(call.Input, &prettyInput)
 			inputJSON, _ := json.MarshalIndent(prettyInput, "  ", "  ")
 			fmt.Printf("  Input:\n  %s\n", string(inputJSON))
 		}
-		
+
 		for j, result := range step.ToolResults {
 			fmt.Printf("\nTool Result %d.%d:\n", i+1, j+1)
 			resultJSON, _ := json.MarshalIndent(result.Result, "  ", "  ")
@@ -427,10 +430,10 @@ func streamingToolExample(ctx context.Context, provider core.Provider) {
 		"Get current weather for a location",
 		func(ctx context.Context, input WeatherInput, meta tools.Meta) (WeatherOutput, error) {
 			fmt.Printf("\n🔧 Tool called during stream: get_weather(%s)\n", input.Location)
-			
+
 			// Add a small delay to simulate API call
 			time.Sleep(500 * time.Millisecond)
-			
+
 			return WeatherOutput{
 				Location:    input.Location,
 				Temperature: 22.5,
@@ -476,27 +479,27 @@ func streamingToolExample(ctx context.Context, provider core.Provider) {
 		case core.EventTextDelta:
 			fmt.Print(event.TextDelta)
 			fullText.WriteString(event.TextDelta)
-			
+
 		case core.EventToolCall:
 			if !toolCallDetected {
 				fmt.Println("\n[Tool call initiated...]")
 				toolCallDetected = true
 			}
 			fmt.Printf("  Calling: %s\n", event.ToolName)
-			
+
 		case core.EventToolResult:
 			fmt.Printf("  Tool result received for: %s\n", event.ToolName)
 			resultJSON, _ := json.MarshalIndent(event.ToolResult, "    ", "  ")
 			fmt.Printf("    %s\n", string(resultJSON))
 			fmt.Println("[Resuming response...]")
-			
+
 		case core.EventFinish:
 			fmt.Println("\n" + strings.Repeat("-", 50))
 			fmt.Println("Stream completed")
 			if event.Usage != nil {
 				fmt.Printf("Total tokens used: %d\n", event.Usage.TotalTokens)
 			}
-			
+
 		case core.EventError:
 			fmt.Printf("\nStream error: %v\n", event.Err)
 		}

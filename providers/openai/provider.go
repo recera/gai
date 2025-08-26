@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,16 +24,16 @@ const (
 
 // Provider implements the core.Provider interface for OpenAI.
 type Provider struct {
-	apiKey      string
-	baseURL     string
-	model       string
-	client      *http.Client
-	maxRetries  int
-	retryDelay  time.Duration
-	org         string
-	project     string
-	collector   core.MetricsCollector
-	mu          sync.RWMutex
+	apiKey     string
+	baseURL    string
+	model      string
+	client     *http.Client
+	maxRetries int
+	retryDelay time.Duration
+	org        string
+	project    string
+	collector  core.MetricsCollector
+	mu         sync.RWMutex
 }
 
 // Option configures the OpenAI provider.
@@ -130,24 +131,28 @@ func New(opts ...Option) *Provider {
 
 // chatCompletionRequest represents the request structure for OpenAI's Chat Completions API.
 type chatCompletionRequest struct {
-	Model            string                   `json:"model"`
-	Messages         []chatMessage            `json:"messages"`
-	Temperature      *float32                 `json:"temperature,omitempty"`
-	MaxTokens        *int                     `json:"max_tokens,omitempty"`
-	Tools            []chatTool               `json:"tools,omitempty"`
-	ToolChoice       interface{}              `json:"tool_choice,omitempty"`
-	Stream           bool                     `json:"stream,omitempty"`
-	ResponseFormat   *responseFormat          `json:"response_format,omitempty"`
-	StreamOptions    *streamOptions           `json:"stream_options,omitempty"`
-	ParallelToolCalls *bool                   `json:"parallel_tool_calls,omitempty"`
-	N                int                      `json:"n,omitempty"`
-	Stop             []string                 `json:"stop,omitempty"`
-	PresencePenalty  *float32                 `json:"presence_penalty,omitempty"`
-	FrequencyPenalty *float32                 `json:"frequency_penalty,omitempty"`
-	LogitBias        map[string]float32       `json:"logit_bias,omitempty"`
-	User             string                   `json:"user,omitempty"`
-	Seed             *int                     `json:"seed,omitempty"`
-	TopP             *float32                 `json:"top_p,omitempty"`
+	Model               string             `json:"model"`
+	Messages            []chatMessage      `json:"messages"`
+	Temperature         *float32           `json:"temperature,omitempty"`
+	MaxTokens           *int               `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int               `json:"max_completion_tokens,omitempty"`
+	Tools               []chatTool         `json:"tools,omitempty"`
+	ToolChoice          interface{}        `json:"tool_choice,omitempty"`
+	Stream              bool               `json:"stream,omitempty"`
+	ResponseFormat      *responseFormat    `json:"response_format,omitempty"`
+	StreamOptions       *streamOptions     `json:"stream_options,omitempty"`
+	ParallelToolCalls   *bool              `json:"parallel_tool_calls,omitempty"`
+	N                   int                `json:"n,omitempty"`
+	Stop                []string           `json:"stop,omitempty"`
+	PresencePenalty     *float32           `json:"presence_penalty,omitempty"`
+	FrequencyPenalty    *float32           `json:"frequency_penalty,omitempty"`
+	LogitBias           map[string]float32 `json:"logit_bias,omitempty"`
+	User                string             `json:"user,omitempty"`
+	Seed                *int               `json:"seed,omitempty"`
+	TopP                *float32           `json:"top_p,omitempty"`
+	// Reasoning model parameters
+	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
+	Verbosity       *string `json:"verbosity,omitempty"`
 }
 
 // chatMessage represents a message in the chat conversation.
@@ -161,8 +166,8 @@ type chatMessage struct {
 
 // contentPart represents a part of multimodal content.
 type contentPart struct {
-	Type     string       `json:"type"`
-	Text     string       `json:"text,omitempty"`
+	Type     string        `json:"type"`
+	Text     string        `json:"text,omitempty"`
 	ImageURL *imageURLPart `json:"image_url,omitempty"`
 }
 
@@ -201,7 +206,7 @@ type functionCall struct {
 
 // responseFormat specifies the output format.
 type responseFormat struct {
-	Type       string          `json:"type"` // "text", "json_object", "json_schema"
+	Type       string            `json:"type"` // "text", "json_object", "json_schema"
 	JSONSchema *jsonSchemaFormat `json:"json_schema,omitempty"`
 }
 
@@ -270,17 +275,23 @@ type messageDelta struct {
 
 // convertRequest converts a core.Request to an OpenAI chat completion request.
 func (p *Provider) convertRequest(req core.Request) (*chatCompletionRequest, error) {
+	model := p.getModel(req)
 	ocr := &chatCompletionRequest{
-		Model: p.getModel(req),
+		Model: model,
 		N:     1,
 	}
 
-	// Handle optional fields
-	if req.Temperature > 0 {
+	// Handle optional fields - reasoning models have limited parameter support
+	if req.Temperature > 0 && !p.isReasoningModel(model) {
 		ocr.Temperature = &req.Temperature
 	}
 	if req.MaxTokens > 0 {
-		ocr.MaxTokens = &req.MaxTokens
+		// Use the appropriate token parameter based on model type
+		if p.isReasoningModel(model) {
+			ocr.MaxCompletionTokens = &req.MaxTokens
+		} else {
+			ocr.MaxTokens = &req.MaxTokens
+		}
 	}
 
 	// Convert messages
@@ -314,10 +325,35 @@ func (p *Provider) getModel(req core.Request) string {
 	return p.model
 }
 
+// isReasoningModel determines if a model is a reasoning model that uses max_completion_tokens.
+func (p *Provider) isReasoningModel(model string) bool {
+	// GPT-5 series models (reasoning models)
+	if strings.HasPrefix(model, "gpt-5") {
+		return true
+	}
+
+	// o1 series models (reasoning models)
+	if strings.HasPrefix(model, "o1") {
+		return true
+	}
+
+	// o3 series models (reasoning models)
+	if strings.HasPrefix(model, "o3") {
+		return true
+	}
+
+	// 04 series models (reasoning models)
+	if strings.HasPrefix(model, "o4") {
+		return true
+	}
+
+	return false
+}
+
 // convertMessages converts core messages to OpenAI format.
 func (p *Provider) convertMessages(messages []core.Message) ([]chatMessage, error) {
 	result := make([]chatMessage, 0, len(messages))
-	
+
 	for _, msg := range messages {
 		cm := chatMessage{
 			Role: string(msg.Role),
@@ -355,7 +391,7 @@ func (p *Provider) convertMessages(messages []core.Message) ([]chatMessage, erro
 // convertParts converts message parts to OpenAI content parts.
 func (p *Provider) convertParts(parts []core.Part) ([]contentPart, error) {
 	result := make([]contentPart, 0, len(parts))
-	
+
 	for _, part := range parts {
 		switch p := part.(type) {
 		case core.Text:
@@ -379,14 +415,14 @@ func (p *Provider) convertParts(parts []core.Part) ([]contentPart, error) {
 			return nil, fmt.Errorf("unknown part type: %T", p)
 		}
 	}
-	
+
 	return result, nil
 }
 
 // convertTools converts core tools to OpenAI format.
 func (p *Provider) convertTools(tools []core.ToolHandle) []chatTool {
 	result := make([]chatTool, 0, len(tools))
-	
+
 	for _, tool := range tools {
 		result = append(result, chatTool{
 			Type: "function",
@@ -398,7 +434,7 @@ func (p *Provider) convertTools(tools []core.ToolHandle) []chatTool {
 			},
 		})
 	}
-	
+
 	return result
 }
 
@@ -441,7 +477,7 @@ func (p *Provider) applyProviderOptions(req *chatCompletionRequest, opts map[str
 // doRequest performs an HTTP request with retry logic.
 func (p *Provider) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= p.maxRetries; attempt++ {
 		if attempt > 0 {
 			// Exponential backoff with jitter
@@ -513,8 +549,8 @@ func (p *Provider) shouldRetry(statusCode int) bool {
 	code := mapStatusCode(statusCode)
 	// Check if this error code is typically transient
 	switch code {
-	case core.ErrorRateLimited, core.ErrorOverloaded, core.ErrorTimeout, 
-	     core.ErrorNetwork, core.ErrorProviderUnavailable, core.ErrorInternal:
+	case core.ErrorRateLimited, core.ErrorOverloaded, core.ErrorTimeout,
+		core.ErrorNetwork, core.ErrorProviderUnavailable, core.ErrorInternal:
 		return true
 	default:
 		// Also retry on specific status codes that might not map cleanly

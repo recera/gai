@@ -7,7 +7,7 @@
   [![Go Reference](https://pkg.go.dev/badge/github.com/recera/gai.svg)](https://pkg.go.dev/github.com/recera/gai)
   [![Go Report Card](https://goreportcard.com/badge/github.com/recera/gai)](https://goreportcard.com/report/github.com/recera/gai)
   [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-  [![Go Version](https://img.shields.io/badge/Go-1.22%2B-blue)](https://go.dev)
+  [![Go Version](https://img.shields.io/badge/Go-1.23%2B-blue)](https://go.dev)
   
   <p>
     <a href="#features">Features</a> •
@@ -29,27 +29,27 @@ Whether you're building a simple chatbot, a complex multi-agent system, or an en
 
 ### Why GAI?
 
-- **🔄 Provider Agnostic**: Single interface for OpenAI, Anthropic, Google Gemini, Ollama, and OpenAI-compatible providers
+- **🔄 Provider Agnostic**: Single interface for OpenAI, Anthropic, Google Gemini, Ollama, Groq, and OpenAI-compatible providers
 - **🛡️ Type Safety**: Full compile-time type checking with Go generics
 - **⚡ Performance**: Zero-allocation hot paths, efficient streaming
 - **🔧 Production Ready**: Built-in retries, rate limiting, observability, and comprehensive error handling
 - **🎯 Developer Experience**: Intuitive APIs, extensive documentation, and rich examples
 - **🌐 Multimodal**: Native support for text, images, audio, video, and files
-- **🔨 Tools**: Type-safe function calling with automatic JSON schema generation
+- **🔨 Multi-Step Tools**: Type-safe function calling with sophisticated execution control
 - **📝 Structured Output**: Get typed responses with automatic validation
 - **🎙️ Audio**: Built-in TTS and STT support with multiple providers
-- **🏗️ Gateway Ready**: Normalized events, idempotency, and stable error taxonomy for building AI gateways
+- **🏗️ Gateway Ready**: Normalized events, idempotency, and stable error taxonomy
 
 ## ✨ Features
 
 ### Core Capabilities
-- **Multi-Provider Support**: OpenAI, Anthropic, Google Gemini, Ollama, and any OpenAI-compatible API
+- **Multi-Provider Support**: OpenAI, Anthropic, Google Gemini, Ollama, Groq, and any OpenAI-compatible API
 - **Streaming**: First-class SSE and NDJSON streaming with backpressure
-- **Tool Calling**: Type-safe function execution with automatic JSON Schema generation
+- **Multi-Step Tool Calling**: Sophisticated agent workflows with stopping conditions
 - **Structured Outputs**: Generate and validate typed JSON responses
 - **Multimodal Messages**: Mix text, images, audio, video, and files in conversations
-- **Long Context**: Support for up to 200K+ tokens with providers like Claude
-- **Vision**: Image analysis with GPT-4V, Claude 3, and Gemini
+- **Long Context**: Support for up to 2M+ tokens with providers like Gemini
+- **Vision**: Image analysis with GPT-4V, Claude 3, and Gemini Pro Vision
 
 ### Production Features
 - **Middleware System**: Composable retry, rate limiting, and safety filters
@@ -70,10 +70,10 @@ Whether you're building a simple chatbot, a complex multi-agent system, or an en
 ### Installation
 
 ```bash
-go get github.com/recera/gai
+go get github.com/recera/gai@latest
 ```
 
-**Requirements**: Go 1.22+ (for generics support)
+**Requirements**: Go 1.23+ (for generics support and latest features)
 
 ### Basic Usage
 
@@ -94,7 +94,7 @@ func main() {
     // Create a provider (works with any supported provider)
     provider := openai.New(
         openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-        openai.WithModel("gpt-4-turbo"),
+        openai.WithModel("gpt-4o"),
     )
     
     // Generate text
@@ -108,7 +108,7 @@ func main() {
                 },
             },
         },
-        MaxTokens:   200,
+        MaxTokens:   500,
         Temperature: 0.7,
     })
     
@@ -134,7 +134,6 @@ stream, err := provider.StreamText(ctx, core.Request{
             },
         },
     },
-    Stream: true,
 })
 if err != nil {
     log.Fatal(err)
@@ -148,6 +147,8 @@ for event := range stream.Events() {
         fmt.Print(event.TextDelta)
     case core.EventToolCall:
         fmt.Printf("\nCalling tool: %s\n", event.ToolName)
+    case core.EventToolResult:
+        fmt.Printf("Tool result received\n")
     case core.EventFinish:
         fmt.Println("\n\nComplete!")
     }
@@ -166,7 +167,7 @@ type Analysis struct {
 }
 
 // Generate structured data
-result, err := provider.GenerateObject[Analysis](ctx, core.Request{
+result, err := provider.GenerateObject(ctx, core.Request{
     Messages: []core.Message{
         {
             Role: core.User,
@@ -175,14 +176,18 @@ result, err := provider.GenerateObject[Analysis](ctx, core.Request{
             },
         },
     },
-})
+}, Analysis{})
+if err != nil {
+    log.Fatal(err)
+}
 
-analysis := result.Value
+// Access typed result
+analysis := result.Value.(Analysis)
 fmt.Printf("Sentiment: %s (%.2f)\n", analysis.Sentiment, analysis.Score)
 fmt.Printf("Keywords: %v\n", analysis.Keywords)
 ```
 
-### Tool Calling
+### Multi-Step Tool Calling
 
 ```go
 import "github.com/recera/gai/tools"
@@ -213,19 +218,27 @@ weatherTool := tools.New[WeatherInput, WeatherOutput](
     },
 )
 
-// Use with AI
+// Use with multi-step execution
 response, err := provider.GenerateText(ctx, core.Request{
     Messages: []core.Message{
         {
             Role: core.User,
             Parts: []core.Part{
-                core.Text{Text: "What's the weather in Tokyo?"},
+                core.Text{Text: "What's the weather in Tokyo and what should I wear?"},
             },
         },
     },
-    Tools: []tools.Handle{weatherTool},
-    ToolChoice: core.ToolAuto,
+    Tools:    tools.ToCoreHandles([]tools.Handle{weatherTool}),
+    StopWhen: core.NoMoreTools(), // Continue until no more tools are needed
 })
+
+// Access execution steps
+for i, step := range response.Steps {
+    fmt.Printf("Step %d: Called %d tools\n", i+1, len(step.ToolCalls))
+    if step.Text != "" {
+        fmt.Printf("  Response: %s\n", step.Text)
+    }
+}
 ```
 
 ## 🔌 Providers
@@ -234,10 +247,11 @@ GAI supports multiple AI providers with a unified interface:
 
 | Provider | Models | Context | Streaming | Tools | Vision | Audio | Status |
 |----------|--------|---------|-----------|-------|--------|-------|--------|
-| **OpenAI** | GPT-4, GPT-3.5 | 128K | ✅ | ✅ | ✅ | ✅ | ✅ Production |
-| **Anthropic** | Claude 3 (Opus, Sonnet, Haiku) | 200K | ✅ | ✅ | ✅ | ❌ | ✅ Production |
-| **Google Gemini** | Gemini 1.5 Pro/Flash | 1M+ | ✅ | ✅ | ✅ | ✅ | ✅ Production |
-| **Ollama** | Llama, Mistral, etc. | Varies | ✅ | ✅ | ✅ | ❌ | ✅ Production |
+| **OpenAI** | GPT-4o, GPT-4, GPT-3.5, GPT-5-mini | 128K | ✅ | ✅ | ✅ | ✅ | ✅ Production |
+| **Anthropic** | Claude 3.5 (Sonnet, Haiku) | 200K | ✅ | ✅ | ✅ | ❌ | ✅ Production |
+| **Google Gemini** | Gemini 1.5 Pro/Flash | 2M+ | ✅ | ✅ | ✅ | ✅ | ✅ Production |
+| **Ollama** | Llama, Qwen, Mistral, etc. | Varies | ✅ | ✅ | ✅ | ❌ | ✅ Production |
+| **Groq** | Llama 3.1, Kimi-K2, Qwen, etc. | 131K | ✅ | ✅ | ✅ | ❌ | ✅ Production |
 | **OpenAI Compatible** | Any compatible API | Varies | ✅ | ✅ | Varies | Varies | ✅ Production |
 
 ### Provider Examples
@@ -246,13 +260,13 @@ GAI supports multiple AI providers with a unified interface:
 // OpenAI
 provider := openai.New(
     openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-    openai.WithModel("gpt-4-turbo"),
+    openai.WithModel("gpt-4o"),
 )
 
 // Anthropic
 provider := anthropic.New(
     anthropic.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
-    anthropic.WithModel("claude-3-opus-20240229"),
+    anthropic.WithModel("claude-3-5-sonnet-20241022"),
 )
 
 // Google Gemini
@@ -267,11 +281,17 @@ provider := ollama.New(
     ollama.WithModel("llama3.2"),
 )
 
-// OpenAI Compatible (Groq, xAI, Together, etc.)
+// Groq (Ultra-fast inference)
+provider := groq.New(
+    groq.WithAPIKey(os.Getenv("GROQ_API_KEY")),
+    groq.WithModel("llama-3.1-8b-instant"),
+)
+
+// OpenAI Compatible (xAI, Together, Cerebras, etc.)
 provider := openai_compat.New(openai_compat.CompatOpts{
-    BaseURL: "https://api.groq.com/openai/v1",
-    APIKey:  os.Getenv("GROQ_API_KEY"),
-    DefaultModel: "llama-3.1-70b-versatile",
+    BaseURL: "https://api.x.ai/v1",
+    APIKey:  os.Getenv("XAI_API_KEY"),
+    DefaultModel: "grok-beta",
 })
 ```
 
@@ -282,7 +302,7 @@ GAI includes comprehensive audio support through the media package:
 ```go
 import "github.com/recera/gai/media"
 
-// Text-to-Speech
+// Text-to-Speech with ElevenLabs
 tts := media.NewElevenLabs(
     media.WithElevenLabsAPIKey(os.Getenv("ELEVENLABS_API_KEY")),
 )
@@ -290,20 +310,26 @@ tts := media.NewElevenLabs(
 stream, err := tts.Synthesize(ctx, media.SpeechRequest{
     Text:   "Hello from GAI!",
     Voice:  "Rachel",
-    Format: media.FormatMP3,
+    Format: "mp3",
 })
 
-// Speech-to-Text
+// Speech-to-Text with Whisper
 stt := media.NewWhisper(
     media.WithWhisperAPIKey(os.Getenv("OPENAI_API_KEY")),
 )
 
 result, err := stt.Transcribe(ctx, media.TranscriptionRequest{
-    Audio: audioBlob,
+    Audio: core.BlobRef{
+        Kind:  core.BlobBytes,
+        Bytes: audioData,
+        MIME:  "audio/mp3",
+    },
     Language: "en",
 })
 
 fmt.Println("Transcript:", result.Text)
+
+// Additional providers: Cartesia (TTS), Deepgram (STT)
 ```
 
 ## 🛡️ Production Features
@@ -352,6 +378,29 @@ defer shutdown(context.Background())
 // Traces and metrics are automatically collected
 ```
 
+### Advanced Tool Control
+
+Sophisticated multi-step execution with stopping conditions:
+
+```go
+// Complex workflow control
+response, err := provider.GenerateText(ctx, core.Request{
+    Messages: messages,
+    Tools:    []core.ToolHandle{weatherTool, calendarTool, emailTool},
+    StopWhen: core.CombineConditions(
+        core.MaxSteps(10),                    // Safety limit
+        core.UntilToolSeen("send_email"),     // Goal-oriented
+        core.NoMoreTools(),                   // Natural completion
+    ),
+})
+
+// Available stopping conditions:
+// - core.MaxSteps(n) - Stop after n steps
+// - core.NoMoreTools() - Stop when no more tools are called
+// - core.UntilToolSeen("tool_name") - Stop after specific tool is used
+// - core.CombineConditions(...) - Combine multiple conditions with OR logic
+```
+
 ### Error Handling
 
 Unified error taxonomy across all providers:
@@ -368,7 +417,7 @@ if err != nil {
         // Reduce context size
         request.Messages = truncateMessages(request.Messages)
         
-    case core.IsAuth(err):
+    case core.IsUnauthorized(err):
         // Check API keys
         return fmt.Errorf("authentication failed: %w", err)
         
@@ -403,16 +452,15 @@ The [examples](./examples) directory contains runnable examples for all features
 - **[hello-stream](./examples/hello-stream)** - Streaming responses
 - **[hello-object](./examples/hello-object)** - Structured outputs with type safety
 - **[hello-tool](./examples/hello-tool)** - Tool calling and multi-step workflows
-- **[hello-vision](./examples/hello-vision)** - Image analysis with vision models
-- **[hello-audio](./examples/hello-audio)** - Speech synthesis and recognition
-- **[multi-provider](./examples/multi-provider)** - Using multiple providers
-- **[chat-app](./examples/chat-app)** - Complete chat application
+- **[advanced-tools](./examples/advanced-tools)** - Complex multi-agent workflows
+- **[prompts-demo](./examples/prompts_demo)** - Prompt template management
+- **[observability](./examples/observability)** - Metrics and tracing
 
 ## 🛠️ Development
 
 ### Prerequisites
 
-- Go 1.22+ (required for generics)
+- Go 1.23+ (required for generics and latest features)
 - Git
 - Make (optional, for convenience commands)
 
@@ -498,7 +546,8 @@ GAI is built on solid architectural principles:
 ├─────────────────────────────────────────────────┤
 │              Provider Abstraction                │
 ├─────────────────────────────────────────────────┤
-│ OpenAI │ Anthropic │ Gemini │ Ollama │ Others  │
+│ OpenAI │ Anthropic │ Gemini │ Ollama │ Groq    │
+│        │ Whisper   │ Media  │ Prompts │ Obs     │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -506,16 +555,17 @@ GAI is built on solid architectural principles:
 
 - **`core`** - Core types, interfaces, and multi-step runner
 - **`providers`** - Provider implementations
-  - `openai` - OpenAI provider
+  - `openai` - OpenAI provider with GPT-4/5 support  
   - `anthropic` - Anthropic Claude provider
   - `gemini` - Google Gemini provider
   - `ollama` - Local model provider
+  - `groq` - Groq ultra-fast inference provider
   - `openai_compat` - OpenAI-compatible adapter
 - **`tools`** - Tool system with JSON Schema generation
 - **`stream`** - Streaming utilities (SSE, NDJSON, normalization)
 - **`middleware`** - Retry, rate limiting, safety filters
 - **`prompts`** - Prompt template management
-- **`media`** - Audio support (TTS/STT)
+- **`media`** - Audio support (TTS/STT) with multiple providers
 - **`obs`** - Observability with OpenTelemetry
 - **`cmd/ai`** - CLI and development server
 
@@ -524,31 +574,31 @@ GAI is built on solid architectural principles:
 ### ✅ Production Ready
 
 - Core framework with provider abstraction
-- OpenAI provider with full features
-- Anthropic Claude provider
-- Google Gemini provider with multimodal support
+- OpenAI provider with GPT-4/5 and reasoning model support
+- Anthropic Claude provider with latest models
+- Google Gemini provider with 2M+ context multimodal support
 - Ollama local model provider
-- OpenAI-compatible adapter (Groq, xAI, Together, etc.)
-- Type-safe tool calling with JSON Schema
-- Streaming (SSE and NDJSON)
-- Structured output generation
-- Middleware system
-- Prompt management
-- Audio support (TTS/STT)
-- Observability
-- Gateway architecture improvements
+- **Native Groq provider** with ultra-fast inference (NEW!)
+- OpenAI-compatible adapter (xAI, Cerebras, Together, etc.)
+- Type-safe multi-step tool calling with sophisticated control
+- Streaming (SSE and NDJSON) with tool execution
+- Structured output generation with validation
+- Middleware system (retry, rate limiting, safety)
+- Prompt management with versioning
+- Audio support (ElevenLabs, Whisper, Cartesia, Deepgram)
+- Observability with OpenTelemetry
 - CLI with development server
 
 ### 🚧 Roadmap
 
 - [ ] WebSocket streaming support
-- [ ] Model routing and automatic failover
+- [ ] Model routing and automatic failover  
 - [ ] MCP (Model Context Protocol) support
-- [ ] Embedding APIs
+- [ ] Embedding APIs standardization
 - [ ] Fine-tuning management
-- [ ] Batch processing
+- [ ] Batch processing support
 - [ ] Cost tracking and optimization
-- [ ] Playground UI improvements
+- [ ] Enhanced playground UI
 - [ ] Additional providers (Cohere, AI21, etc.)
 
 ## 🤝 Contributing

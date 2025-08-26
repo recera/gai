@@ -1,111 +1,52 @@
 # Installation Guide
 
-This comprehensive guide will walk you through installing and setting up GAI in your Go project. We'll cover everything from basic installation to advanced configuration options.
-
-## Table of Contents
-- [Prerequisites](#prerequisites)
-- [Installation Methods](#installation-methods)
-- [Environment Setup](#environment-setup)
-- [Verification](#verification)
-- [IDE Setup](#ide-setup)
-- [Troubleshooting](#troubleshooting)
+This guide walks you through installing and setting up GAI (Go AI Framework) for your Go project.
 
 ## Prerequisites
 
-Before installing GAI, ensure you have the following:
-
-### Required Software
-
-#### Go Language
-GAI requires Go 1.22 or later for full feature support, including generics.
-
-```bash
-# Check your Go version
-go version
-
-# Should output: go version go1.22.x or higher
-```
-
-If you need to install or upgrade Go:
-- **macOS**: `brew install go` or download from [golang.org](https://golang.org)
-- **Linux**: Use your package manager or download from [golang.org](https://golang.org)
-- **Windows**: Download the installer from [golang.org](https://golang.org)
-
-#### Git
-Git is required to clone repositories and manage dependencies.
-
-```bash
-# Check Git installation
-git --version
-```
-
 ### System Requirements
 
-- **Memory**: Minimum 2GB RAM (4GB+ recommended for local models with Ollama)
-- **Disk Space**: 100MB for GAI + space for any local models
-- **Network**: Internet connection for cloud providers
-- **OS**: Linux, macOS, or Windows with WSL2
+- **Go 1.23+** (required for generics and latest language features)
+- **Git** (for cloning repositories and version control)
+- **Make** (optional, for convenience commands)
+
+### Verify Go Installation
+
+```bash
+go version
+```
+
+You should see output like:
+```
+go version go1.23.0 linux/amd64
+```
+
+If Go is not installed, download it from [golang.org](https://golang.org/dl/).
 
 ## Installation Methods
 
-### Method 1: Go Modules (Recommended)
+### Method 1: Go Module (Recommended)
 
-The simplest way to add GAI to your project is using Go modules.
-
-#### New Project Setup
+The simplest way to add GAI to your project:
 
 ```bash
-# Create a new project directory
-mkdir my-ai-app
-cd my-ai-app
-
-# Initialize Go module
-go mod init github.com/recera/my-ai-app
-
-# Install GAI
-go get github.com/recera/gai@latest
-
-# Install specific provider packages as needed
-go get github.com/recera/gai/providers/openai@latest
-go get github.com/recera/gai/providers/anthropic@latest
-go get github.com/recera/gai/providers/gemini@latest
-go get github.com/recera/gai/providers/ollama@latest
-```
-
-#### Existing Project Setup
-
-```bash
-# Navigate to your project
-cd your-project
+# Initialize a new Go module (if you haven't already)
+go mod init your-project-name
 
 # Add GAI to your project
 go get github.com/recera/gai@latest
 
-# Update your go.mod
-go mod tidy
+# Install specific packages as needed
+go get github.com/recera/gai/providers/openai@latest
+go get github.com/recera/gai/providers/anthropic@latest
+go get github.com/recera/gai/providers/groq@latest
+go get github.com/recera/gai/tools@latest
+go get github.com/recera/gai/middleware@latest
 ```
 
-### Method 2: Specific Version Installation
+### Method 2: Clone and Build from Source
 
-To install a specific version of GAI:
-
-```bash
-# Install a specific version
-go get github.com/recera/gai@v1.0.0
-
-# Install a pre-release version
-go get github.com/recera/gai@v1.1.0-beta.1
-
-# Install from a specific commit
-go get github.com/recera/gai@commithash
-
-# Install from a branch
-go get github.com/recera/gai@feature-branch
-```
-
-### Method 3: Local Development Setup
-
-For contributing to GAI or local development:
+For development or to get the latest features:
 
 ```bash
 # Clone the repository
@@ -115,180 +56,116 @@ cd gai
 # Install dependencies
 go mod download
 
-# Build the project
-go build ./...
-
 # Run tests to verify installation
 go test ./...
 
-# In your project, use replace directive
-cd ../your-project
-go mod edit -replace github.com/recera/gai=../gai
+# Build the CLI tool
+go build -o ai ./cmd/ai
+
+# Install CLI globally (optional)
+go install github.com/recera/gai/cmd/ai@latest
 ```
 
-### Method 4: Using GAI CLI (Optional)
+### Method 3: Using Go Install (CLI Only)
 
-GAI provides an optional CLI for project scaffolding:
+If you only need the CLI tool:
 
 ```bash
-# Install the GAI CLI
-go install github.com/recera/gai/cmd/gai@latest
+# Install the GAI CLI globally
+go install github.com/recera/gai/cmd/ai@latest
 
-# Create a new project with GAI
-gai new my-ai-project
-
-# This creates a new project with:
-# - Configured go.mod
-# - Example code
-# - Environment template
-# - Docker setup (optional)
+# Verify installation
+ai version
 ```
 
-## Environment Setup
+## API Key Setup
 
-### API Keys Configuration
+GAI requires API keys for various providers. Set up the providers you plan to use:
 
-GAI requires API keys for cloud providers. Set them up as environment variables:
+### OpenAI
 
-#### Creating an Environment File
+1. Visit [platform.openai.com](https://platform.openai.com)
+2. Create an account or sign in
+3. Navigate to [API Keys](https://platform.openai.com/api-keys)
+4. Click "Create new secret key"
+5. Copy the key (starts with `sk-`)
+
+```bash
+export OPENAI_API_KEY="sk-your-key-here"
+```
+
+### Anthropic Claude
+
+1. Visit [console.anthropic.com](https://console.anthropic.com)
+2. Create an account or sign in
+3. Navigate to API Keys
+4. Generate a new API key
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+### Google Gemini
+
+1. Visit [ai.google.dev](https://ai.google.dev)
+2. Sign in with your Google account
+3. Navigate to "Get API key"
+4. Create a new API key
+
+```bash
+export GOOGLE_API_KEY="AI-your-key-here"
+```
+
+### Groq
+
+1. Visit [console.groq.com](https://console.groq.com)
+2. Create an account or sign in
+3. Navigate to API Keys
+4. Generate a new API key
+
+```bash
+export GROQ_API_KEY="gsk-your-key-here"
+```
+
+### Additional Providers
+
+```bash
+# xAI (Grok)
+export XAI_API_KEY="xai-your-key-here"
+
+# ElevenLabs (TTS)
+export ELEVENLABS_API_KEY="your-key-here"
+
+# Deepgram (STT)  
+export DEEPGRAM_API_KEY="your-key-here"
+```
+
+### Persistent Environment Variables
 
 Create a `.env` file in your project root:
 
 ```bash
-# .env
-# OpenAI Configuration
-OPENAI_API_KEY=sk-...your-key-here...
-OPENAI_ORG_ID=org-...optional...
-OPENAI_MODEL=gpt-4
-
-# Anthropic Configuration
-ANTHROPIC_API_KEY=sk-ant-...your-key-here...
-ANTHROPIC_MODEL=claude-3-opus-20240229
-
-# Google Gemini Configuration
-GOOGLE_API_KEY=...your-key-here...
-GEMINI_MODEL=gemini-1.5-pro
-
-# Ollama Configuration (Local)
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama3.2
-
-# Groq Configuration
-GROQ_API_KEY=gsk_...your-key-here...
-
-# ElevenLabs (TTS)
-ELEVENLABS_API_KEY=...your-key-here...
-
-# Deepgram (STT)
-DEEPGRAM_API_KEY=...your-key-here...
-
-# Optional: Observability
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-OTEL_SERVICE_NAME=my-ai-app
-
-# Optional: Custom Settings
-GAI_LOG_LEVEL=debug
-GAI_TIMEOUT=60s
-GAI_MAX_RETRIES=3
+# .env file
+OPENAI_API_KEY=sk-your-openai-key
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
+GOOGLE_API_KEY=AI-your-google-key
+GROQ_API_KEY=gsk-your-groq-key
+ELEVENLABS_API_KEY=your-elevenlabs-key
 ```
 
-#### Loading Environment Variables
+**Important**: Add `.env` to your `.gitignore` to avoid committing API keys:
 
-Use a package like `godotenv` to load the `.env` file:
-
-```go
-package main
-
-import (
-    "log"
-    "os"
-    
-    "github.com/joho/godotenv"
-    "github.com/recera/gai/providers/openai"
-)
-
-func init() {
-    // Load .env file
-    if err := godotenv.Load(); err != nil {
-        log.Printf("Warning: .env file not found")
-    }
-}
-
-func main() {
-    // API key is now available
-    apiKey := os.Getenv("OPENAI_API_KEY")
-    if apiKey == "" {
-        log.Fatal("OPENAI_API_KEY not set")
-    }
-    
-    provider := openai.New(
-        openai.WithAPIKey(apiKey),
-    )
-    // ... rest of your code
-}
-```
-
-#### System-wide Environment Variables
-
-Alternatively, set environment variables system-wide:
-
-**macOS/Linux:**
 ```bash
-# Add to ~/.bashrc, ~/.zshrc, or ~/.profile
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-
-# Reload shell configuration
-source ~/.bashrc  # or ~/.zshrc
+echo ".env" >> .gitignore
 ```
-
-**Windows:**
-```powershell
-# PowerShell (permanent)
-[System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY','sk-...','User')
-
-# Command Prompt (temporary)
-set OPENAI_API_KEY=sk-...
-```
-
-### Obtaining API Keys
-
-Here's how to get API keys for each provider:
-
-#### OpenAI
-1. Visit [platform.openai.com](https://platform.openai.com)
-2. Sign up or log in
-3. Navigate to API Keys section
-4. Create a new API key
-5. Set usage limits and restrictions
-
-#### Anthropic
-1. Visit [console.anthropic.com](https://console.anthropic.com)
-2. Create an account
-3. Go to API Keys
-4. Generate a new key
-5. Note: Anthropic requires approval for production use
-
-#### Google Gemini
-1. Visit [makersuite.google.com](https://makersuite.google.com)
-2. Sign in with Google account
-3. Get API key from the console
-4. Enable the Generative Language API
-
-#### Groq
-1. Visit [console.groq.com](https://console.groq.com)
-2. Sign up for an account
-3. Navigate to API Keys
-4. Create and copy your key
 
 ## Verification
 
-### Basic Installation Test
+### Test Installation with Hello World
 
-Create a test file to verify your installation:
+Create `main.go`:
 
 ```go
-// test_install.go
 package main
 
 import (
@@ -302,10 +179,88 @@ import (
 )
 
 func main() {
+    // Load API key from environment
+    apiKey := os.Getenv("OPENAI_API_KEY")
+    if apiKey == "" {
+        log.Fatal("Please set OPENAI_API_KEY environment variable")
+    }
+    
     // Create provider
     provider := openai.New(
-        openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-        openai.WithModel("gpt-3.5-turbo"),
+        openai.WithAPIKey(apiKey),
+        openai.WithModel("gpt-4o-mini"), // Fast and cost-effective for testing
+    )
+    
+    // Test with simple request
+    ctx := context.Background()
+    response, err := provider.GenerateText(ctx, core.Request{
+        Messages: []core.Message{
+            {
+                Role: core.User,
+                Parts: []core.Part{
+                    core.Text{Text: "Say 'GAI installation successful!'"},
+                },
+            },
+        },
+        MaxTokens: 20,
+    })
+    
+    if err != nil {
+        log.Fatalf("Error: %v", err)
+    }
+    
+    fmt.Printf("✅ Success! Response: %s\n", response.Text)
+    fmt.Printf("📊 Tokens used: %d\n", response.Usage.TotalTokens)
+}
+```
+
+Run the test:
+
+```bash
+go mod tidy
+go run main.go
+```
+
+You should see output like:
+```
+✅ Success! Response: GAI installation successful!
+📊 Tokens used: 15
+```
+
+### Test with Local Provider (Ollama)
+
+If you prefer to test without API keys, install Ollama:
+
+```bash
+# Install Ollama (see https://ollama.ai for your platform)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull llama3.2
+
+# Start Ollama service
+ollama serve
+```
+
+Test with Ollama:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/recera/gai/core"
+    "github.com/recera/gai/providers/ollama"
+)
+
+func main() {
+    // Create Ollama provider (no API key needed)
+    provider := ollama.New(
+        ollama.WithBaseURL("http://localhost:11434"),
+        ollama.WithModel("llama3.2"),
     )
     
     // Test request
@@ -315,7 +270,7 @@ func main() {
             {
                 Role: core.User,
                 Parts: []core.Part{
-                    core.Text{Text: "Say 'GAI is installed correctly!'"},
+                    core.Text{Text: "Say hello from Ollama!"},
                 },
             },
         },
@@ -323,28 +278,16 @@ func main() {
     })
     
     if err != nil {
-        log.Fatalf("Installation test failed: %v", err)
+        log.Fatalf("Error: %v", err)
     }
     
-    fmt.Println("✅ Success:", response.Text)
-    fmt.Printf("📊 Tokens used: %d\n", response.Usage.TotalTokens)
+    fmt.Printf("✅ Ollama Success! Response: %s\n", response.Text)
 }
 ```
 
-Run the test:
-```bash
-go run test_install.go
-```
+### Test Ultra-Fast Groq Provider
 
-Expected output:
-```
-✅ Success: GAI is installed correctly!
-📊 Tokens used: 15
-```
-
-### Advanced Verification
-
-Test multiple providers and features:
+Test the native Groq provider with ultra-fast inference:
 
 ```go
 package main
@@ -354,249 +297,201 @@ import (
     "fmt"
     "log"
     "os"
+    "time"
     
     "github.com/recera/gai/core"
-    "github.com/recera/gai/providers/openai"
-    "github.com/recera/gai/providers/anthropic"
-    "github.com/recera/gai/providers/ollama"
-    "github.com/recera/gai/tools"
+    "github.com/recera/gai/providers/groq"
 )
 
 func main() {
-    ctx := context.Background()
+    // Create Groq provider
+    provider := groq.New(
+        groq.WithAPIKey(os.Getenv("GROQ_API_KEY")),
+        groq.WithModel("llama-3.1-8b-instant"),
+    )
     
-    // Test each provider
-    providers := map[string]core.Provider{
-        "OpenAI": openai.New(
-            openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-        ),
-        "Anthropic": anthropic.New(
-            anthropic.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
-        ),
-        "Ollama": ollama.New(
-            ollama.WithBaseURL("http://localhost:11434"),
-        ),
-    }
+    // Time the request to see ultra-fast performance
+    start := time.Now()
     
-    for name, provider := range providers {
-        fmt.Printf("\nTesting %s...\n", name)
-        testProvider(ctx, provider)
-    }
-    
-    // Test tools
-    fmt.Println("\nTesting tools system...")
-    testTools()
-    
-    fmt.Println("\n✅ All tests passed! GAI is properly installed.")
-}
-
-func testProvider(ctx context.Context, provider core.Provider) {
-    response, err := provider.GenerateText(ctx, core.Request{
+    response, err := provider.GenerateText(context.Background(), core.Request{
         Messages: []core.Message{
             {
                 Role: core.User,
                 Parts: []core.Part{
-                    core.Text{Text: "Return the number 42"},
+                    core.Text{Text: "Write a haiku about speed"},
                 },
             },
         },
+        MaxTokens: 50,
     })
     
+    duration := time.Since(start)
+    
     if err != nil {
-        fmt.Printf("  ⚠️  Provider test failed: %v\n", err)
-        return
+        log.Fatalf("Error: %v", err)
     }
     
-    fmt.Printf("  ✓ Response received: %s\n", response.Text)
-}
-
-func testTools() {
-    // Define a simple tool
-    type Input struct {
-        Number int `json:"number"`
-    }
-    type Output struct {
-        Result int `json:"result"`
-    }
-    
-    tool := tools.New[Input, Output](
-        "double",
-        "Doubles a number",
-        func(ctx context.Context, in Input, meta tools.Meta) (Output, error) {
-            return Output{Result: in.Number * 2}, nil
-        },
-    )
-    
-    fmt.Printf("  ✓ Tool created: %s\n", tool.Name())
+    fmt.Printf("⚡ Groq Response (%.2fs): %s\n", duration.Seconds(), response.Text)
 }
 ```
 
 ## IDE Setup
 
-### Visual Studio Code
+### VS Code
 
-Install recommended extensions for the best experience:
+For the best Go development experience with GAI:
 
-```json
-// .vscode/extensions.json
-{
-    "recommendations": [
-        "golang.go",
-        "ms-vscode.makefile-tools",
-        "streetsidesoftware.code-spell-checker",
-        "yzhang.markdown-all-in-one"
-    ]
-}
-```
+1. Install the [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.go)
+2. Enable Go modules support
+3. Install go tools: `Ctrl+Shift+P` → "Go: Install/Update Tools"
 
-Configure VS Code settings:
+Recommended VS Code settings (`.vscode/settings.json`):
 
 ```json
-// .vscode/settings.json
 {
-    "go.lintTool": "golangci-lint",
-    "go.lintFlags": [
-        "--fast"
-    ],
+    "go.useLanguageServer": true,
+    "go.autocompleteUnimportedPackages": true,
+    "go.gocodeAutoBuild": false,
+    "go.lintOnSave": "package",
+    "go.formatTool": "goimports",
     "go.testFlags": ["-v"],
-    "go.buildTags": "",
-    "go.generateTestsFlags": ["-template", "testify"],
-    "gopls": {
-        "experimentalPostfixCompletions": true,
-        "analyses": {
-            "unusedparams": true,
-            "shadow": true
-        }
-    }
+    "go.testTimeout": "120s"
 }
 ```
 
 ### GoLand / IntelliJ IDEA
 
-1. Open your project
-2. Go to **File → Project Structure**
-3. Set SDK to Go 1.22+
-4. Enable Go Modules integration
-5. Configure run configurations with environment variables
+GAI works seamlessly with JetBrains IDEs:
 
-### Vim/Neovim
+1. Ensure Go plugin is installed and enabled
+2. Import the GAI project or create a new Go project
+3. Enable Go modules support in Settings → Go → Go Modules
 
-Add to your configuration:
+## CLI Tool Setup
 
-```vim
-" For vim-go
-let g:go_def_mode='gopls'
-let g:go_info_mode='gopls'
-let g:go_fmt_command = "goimports"
-let g:go_auto_type_info = 1
+The GAI CLI provides development utilities:
 
-" For coc.nvim
-" Install coc-go extension
-:CocInstall coc-go
+```bash
+# Install CLI globally
+go install github.com/recera/gai/cmd/ai@latest
+
+# Verify installation
+ai version
+
+# Get help
+ai help
+
+# Start development server
+ai dev serve
 ```
+
+The development server provides:
+- Interactive web UI: http://localhost:8080
+- REST API: http://localhost:8080/api/generate
+- Streaming endpoints: http://localhost:8080/api/chat
+- Health check: http://localhost:8080/api/health
 
 ## Troubleshooting
 
-### Common Installation Issues
+### Common Issues
 
-#### Issue: Module not found
-```
-go: github.com/recera/gai: module not found
-```
-
-**Solution:**
+#### "module not found" errors
 ```bash
-# Clear module cache
-go clean -modcache
-
-# Re-download modules
-go mod download
-
-# If using private repo, configure Git
-go env -w GOPRIVATE=github.com/yourusername
+# Ensure you're in a Go module directory
+go mod init your-project-name
+go get github.com/recera/gai@latest
 ```
 
-#### Issue: Version conflicts
-```
-go: conflicting versions of module
-```
-
-**Solution:**
+#### "Go version too old" errors
 ```bash
-# Update all dependencies
-go get -u ./...
+# Check Go version
+go version
 
-# Or specify exact versions
-go get github.com/recera/gai@v1.0.0
+# Update Go if needed (download from golang.org)
+# Or use Go version manager like g or gvm
 ```
 
-#### Issue: API key not found
-```
-OPENAI_API_KEY not set
-```
-
-**Solution:**
+#### API key issues
 ```bash
-# Check environment variable
+# Verify environment variables are set
 echo $OPENAI_API_KEY
 
-# Set it if missing
-export OPENAI_API_KEY="your-key"
-
-# Or use .env file with godotenv
+# Test API key directly
+curl -H "Authorization: Bearer $OPENAI_API_KEY" \
+     https://api.openai.com/v1/models
 ```
 
-#### Issue: Connection refused (Ollama)
-```
-connection refused: http://localhost:11434
-```
-
-**Solution:**
+#### Network/proxy issues
 ```bash
-# Start Ollama service
-ollama serve
+# Set Go proxy if needed
+go env -w GOPROXY=https://proxy.golang.org,direct
 
-# Or check if it's running
-curl http://localhost:11434/api/tags
+# Or use direct access
+go env -w GOPROXY=direct
+
+# Check Go module settings
+go env GOPROXY GOSUMDB
 ```
 
-### Platform-Specific Issues
+#### Import path issues
+```bash
+# Clean module cache if needed
+go clean -modcache
 
-#### macOS
-- If using Homebrew, ensure paths are correct: `echo $PATH`
-- For M1/M2 Macs, ensure you have the ARM64 version of Go
-
-#### Linux
-- Install build essentials: `sudo apt-get install build-essential`
-- For Ubuntu/Debian: `sudo apt-get install golang-go`
-
-#### Windows
-- Use WSL2 for best compatibility
-- Or ensure Git Bash is used for terminal commands
-- Set GOPROXY if behind corporate firewall
+# Re-download dependencies
+go mod download
+```
 
 ### Getting Help
 
-If you encounter issues:
-
-1. Check the [FAQ](../troubleshooting/faq.md)
-2. Search [existing issues](https://github.com/recera/gai/issues)
-3. Join our [Discord community](https://discord.gg/gai)
-4. Create a [new issue](https://github.com/recera/gai/issues/new) with:
-   - Go version (`go version`)
-   - GAI version (`go list -m github.com/recera/gai`)
-   - Error messages
-   - Minimal reproduction code
+- Check our [Troubleshooting Guide](../troubleshooting/common-issues.md)
+- Visit [GitHub Issues](https://github.com/recera/gai/issues)
+- Join our [Discord Community](https://discord.gg/gai)
+- Read the [FAQ](../troubleshooting/faq.md)
 
 ## Next Steps
 
-Now that GAI is installed, you're ready to:
+Now that GAI is installed and verified:
 
-1. Follow the [Quick Start Tutorial](./quickstart.md)
-2. Explore [Basic Examples](./basic-examples.md)
-3. Learn about [Core Concepts](../core-concepts/architecture.md)
-4. Build your first [AI Application](../tutorials/chatbot.md)
+1. **[Quick Start Tutorial](./quickstart.md)** - Build your first AI app in 5 minutes
+2. **[Core Concepts](../core-concepts/architecture.md)** - Understand GAI's architecture
+3. **[Provider Guides](../providers/)** - Deep dive into specific providers
+4. **[Examples](../../examples/)** - Explore comprehensive examples
+5. **[Best Practices](../guides/best-practices.md)** - Learn production patterns
+
+## Update GAI
+
+To update to the latest version:
+
+```bash
+# Update to latest version
+go get -u github.com/recera/gai@latest
+
+# Update specific packages
+go get -u github.com/recera/gai/providers/openai@latest
+
+# Update CLI tool
+go install github.com/recera/gai/cmd/ai@latest
+
+# Verify update
+go list -m github.com/recera/gai
+```
+
+## Uninstall
+
+To remove GAI from your project:
+
+```bash
+# Remove from go.mod
+go mod edit -droprequire github.com/recera/gai
+
+# Clean unused dependencies
+go mod tidy
+
+# Remove CLI tool
+rm $(which ai)
+```
 
 ---
 
-**Congratulations! You've successfully installed GAI. Let's build something amazing! 🚀**
+**Need help?** Check our [troubleshooting guide](../troubleshooting/) or [open an issue](https://github.com/recera/gai/issues).
